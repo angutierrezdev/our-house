@@ -1,0 +1,5 @@
+{
+  "name": "ChoreMaster",
+  "description": "A modern house chore management application with Kanban boards, recurring tasks, and AI-powered suggestions. Supports Firebase persistence with a local storage fallback.",
+  "requestFramePermissions": []
+}
