@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
-  const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING);
+  const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING || c.status === ChoreStatus.IN_PROGRESS);
   const completedChores = chores.filter((c) => c.status === ChoreStatus.COMPLETED);
 
   // Chart Data: Tasks completed per person (approximation based on assigned tasks that are completed)
@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Pending Tasks</p>
+              <p className="text-sm text-gray-500">Active Tasks</p>
               <h3 className="text-2xl font-bold text-gray-900">{pendingChores.length}</h3>
             </div>
           </div>
@@ -92,7 +92,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="divide-y divide-gray-100">
             {pendingChores.length === 0 ? (
-               <div className="p-8 text-center text-gray-400">No pending chores. You're all caught up!</div>
+               <div className="p-8 text-center text-gray-400">No active chores. You're all caught up!</div>
             ) : (
               pendingChores.map((chore) => {
                 const assignee = getAssignee(chore.assigneeId);
@@ -120,6 +120,11 @@ const Dashboard: React.FC = () => {
                           <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityConfig.class}`}>
                             {priorityConfig.label}
                           </span>
+                          {chore.status === ChoreStatus.IN_PROGRESS && (
+                             <span className="text-[10px] px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200">
+                               In Progress
+                             </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-gray-500 mt-1 flex-wrap">
                           {assignee ? (

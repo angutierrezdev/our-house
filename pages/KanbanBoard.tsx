@@ -30,13 +30,20 @@ const KanbanBoard: React.FC = () => {
     const chore = chores.find((c) => c.id === draggableId);
     if (!chore) return;
 
-    // Optimistic update logic could be added here for smoother UI, 
-    // but Firestore listeners will update state shortly.
+    const destStatus = destination.droppableId as ChoreStatus;
+    const sourceStatus = source.droppableId as ChoreStatus;
 
-    if (destination.droppableId === ChoreStatus.COMPLETED && source.droppableId !== ChoreStatus.COMPLETED) {
+    // Handle completion logic
+    if (destStatus === ChoreStatus.COMPLETED && sourceStatus !== ChoreStatus.COMPLETED) {
       await completeChore(chore);
-    } else if (destination.droppableId === ChoreStatus.PENDING && source.droppableId !== ChoreStatus.PENDING) {
-      await updateChore(chore.id, { status: ChoreStatus.PENDING, completedAt: undefined });
+    } 
+    // Handle un-completion logic (move from Done back to Pending/In Progress)
+    else if (destStatus !== ChoreStatus.COMPLETED && sourceStatus === ChoreStatus.COMPLETED) {
+      await updateChore(chore.id, { status: destStatus, completedAt: undefined });
+    } 
+    // Handle Pending <-> In Progress
+    else {
+      await updateChore(chore.id, { status: destStatus });
     }
   };
 
@@ -53,8 +60,27 @@ const KanbanBoard: React.FC = () => {
   };
 
   const columns = [
-    { id: ChoreStatus.PENDING, title: "To Do", bg: "bg-gray-100", header: "border-t-4 border-blue-500" },
-    { id: ChoreStatus.COMPLETED, title: "Done", bg: "bg-green-50", header: "border-t-4 border-green-500" },
+    { 
+      id: ChoreStatus.PENDING, 
+      title: "To Do", 
+      bg: "bg-gray-100", 
+      header: "border-t-4 border-blue-500",
+      count: chores.filter((c) => c.status === ChoreStatus.PENDING).length
+    },
+    { 
+      id: ChoreStatus.IN_PROGRESS, 
+      title: "In Progress", 
+      bg: "bg-yellow-50", 
+      header: "border-t-4 border-yellow-500",
+      count: chores.filter((c) => c.status === ChoreStatus.IN_PROGRESS).length
+    },
+    { 
+      id: ChoreStatus.COMPLETED, 
+      title: "Done", 
+      bg: "bg-green-50", 
+      header: "border-t-4 border-green-500",
+      count: chores.filter((c) => c.status === ChoreStatus.COMPLETED).length
+    },
   ];
 
   return (
@@ -70,7 +96,7 @@ const KanbanBoard: React.FC = () => {
               <div className={`bg-white p-3 rounded-lg shadow-sm mb-4 ${col.header} flex justify-between items-center`}>
                 <h2 className="font-semibold text-gray-800">{col.title}</h2>
                 <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                  {chores.filter((c) => c.status === col.id).length}
+                  {col.count}
                 </span>
               </div>
 

@@ -15,6 +15,7 @@ export enum ChoreFrequency {
 
 export enum ChoreStatus {
   PENDING = 'pending',
+  IN_PROGRESS = 'in-progress',
   COMPLETED = 'completed',
 }
 
