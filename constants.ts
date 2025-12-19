@@ -17,6 +17,7 @@ export const ROUTES = {
   DASHBOARD: "/",
   KANBAN: "/kanban",
   PEOPLE: "/people",
+  SETTINGS: "/settings",
 };
 
 export const PRIORITY_CONFIG: Record<ChorePriority, { label: string; class: string }> = {

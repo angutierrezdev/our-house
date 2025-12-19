@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Kanban, Users, CheckCircle2 } from "lucide-react";
+import { LayoutDashboard, Kanban, Users, CheckCircle2, Settings as SettingsIcon } from "lucide-react";
 import { ROUTES, APP_NAME } from "../constants";
 import { isFirebaseConfigured } from "../firebase";
 
@@ -11,6 +11,7 @@ const Layout: React.FC = () => {
     { to: ROUTES.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
     { to: ROUTES.KANBAN, icon: Kanban, label: 'Board' },
     { to: ROUTES.PEOPLE, icon: Users, label: 'People' },
+    { to: ROUTES.SETTINGS, icon: SettingsIcon, label: 'Settings' },
   ];
 
   const getNavLinkClass = (isActive: boolean, isMobile: boolean) => {

@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import KanbanBoard from './pages/KanbanBoard';
 import PeopleManager from './pages/PeopleManager';
+import Settings from './pages/Settings';
 import { ROUTES } from './constants';
 
 const App: React.FC = () => {
@@ -14,6 +15,7 @@ const App: React.FC = () => {
           <Route index element={<Dashboard />} />
           <Route path={ROUTES.KANBAN} element={<KanbanBoard />} />
           <Route path={ROUTES.PEOPLE} element={<PeopleManager />} />
+          <Route path={ROUTES.SETTINGS} element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -3,6 +3,7 @@ import { X, Sparkles } from "lucide-react";
 import { Person, Chore, ChoreFrequency, ChoreStatus, ChorePriority } from "../types";
 import { addChore, updateChore } from "../services/dataService";
 import AIAssistant from "./AIAssistant";
+import { getSettings } from "../services/settingsService";
 
 interface ChoreModalProps {
   isOpen: boolean;
@@ -19,8 +20,14 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState<string>("");
   const [showAI, setShowAI] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(getSettings().aiEnabled);
 
   useEffect(() => {
+    // Refresh settings whenever modal opens or when settings change event happens
+    const refreshSettings = () => setAiEnabled(getSettings().aiEnabled);
+    window.addEventListener("settingsChanged", refreshSettings);
+    refreshSettings();
+
     if (existingChore) {
       setTitle(existingChore.title);
       setDescription(existingChore.description);
@@ -31,6 +38,8 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
     } else {
       resetForm();
     }
+
+    return () => window.removeEventListener("settingsChanged", refreshSettings);
   }, [existingChore, isOpen]);
 
   const resetForm = () => {
@@ -89,7 +98,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
         </div>
 
         <div className="p-4 overflow-y-auto flex-1">
-           {!existingChore && (
+           {(!existingChore && aiEnabled) && (
              <div className="mb-4">
                <button 
                  type="button"
