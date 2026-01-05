@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Sparkles } from "lucide-react";
-import { Person, Chore, ChoreFrequency, ChoreStatus, ChorePriority } from "../types";
+import { Person, Chore, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addChore, updateChore } from "../services/dataService";
 import AIAssistant from "./AIAssistant";
 import { getSettings } from "../services/settingsService";
@@ -17,6 +17,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState<ChoreFrequency>(ChoreFrequency.ONE_TIME);
   const [priority, setPriority] = useState<ChorePriority>(ChorePriority.SOON);
+  const [difficulty, setDifficulty] = useState<ChoreDifficulty>(ChoreDifficulty.MEDIUM);
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState<string>("");
   const [showAI, setShowAI] = useState(false);
@@ -33,6 +34,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
       setDescription(existingChore.description);
       setFrequency(existingChore.frequency);
       setPriority(existingChore.priority || ChorePriority.SOON);
+      setDifficulty(existingChore.difficulty || ChoreDifficulty.MEDIUM);
       setAssigneeId(existingChore.assigneeId);
       setDueDate(existingChore.dueDate ? new Date(existingChore.dueDate).toISOString().split('T')[0] : "");
     } else {
@@ -47,6 +49,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
     setDescription("");
     setFrequency(ChoreFrequency.ONE_TIME);
     setPriority(ChorePriority.SOON);
+    setDifficulty(ChoreDifficulty.MEDIUM);
     setAssigneeId("");
     setDueDate(""); // Default to no date
   };
@@ -60,18 +63,19 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
       description,
       frequency,
       priority,
+      difficulty,
       assigneeId,
       dueDate: timestamp
     };
 
     if (existingChore) {
-      await updateChore(existingChore.id, choreData);
+      await updateChore(existingChore.id, choreData as Partial<Chore>);
     } else {
       await addChore({
         ...choreData,
         status: ChoreStatus.PENDING,
         createdAt: Date.now(),
-      });
+      } as Omit<Chore, "id">);
     }
     onClose();
     resetForm();
@@ -166,7 +170,19 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value as ChoreDifficulty)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value={ChoreDifficulty.EASY}>Easy</option>
+                  <option value={ChoreDifficulty.MEDIUM}>Medium</option>
+                  <option value={ChoreDifficulty.HARD}>Hard</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date <span className="text-gray-400 font-normal">(Optional)</span></label>
                 <input

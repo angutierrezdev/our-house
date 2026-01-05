@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "../firebase";
 import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople } from "./localStorage";
-import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority } from "../types";
+import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addWeeks, addMonths, addDays, addYears } from "date-fns";
 import { PRIORITY_WEIGHTS } from "../constants";
 
@@ -90,8 +90,9 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
         return { 
           id: doc.id, 
           ...data,
-          // Handle migration for old chores that might not have priority
-          priority: data.priority || ChorePriority.SOON
+          // Handle migration for old chores that might not have priority or difficulty
+          priority: data.priority || ChorePriority.SOON,
+          difficulty: data.difficulty || ChoreDifficulty.MEDIUM
         } as Chore;
       });
       
@@ -100,7 +101,11 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
   } else {
     const getAndSort = () => {
       const chores = getLocalChores();
-      return sortChores(chores);
+      return sortChores(chores.map(c => ({
+        ...c,
+        priority: c.priority || ChorePriority.SOON,
+        difficulty: c.difficulty || ChoreDifficulty.MEDIUM
+      })));
     };
 
     callback(getAndSort());
@@ -170,6 +175,7 @@ export const completeChore = async (chore: Chore) => {
       description: chore.description,
       frequency: chore.frequency,
       priority: chore.priority || ChorePriority.SOON,
+      difficulty: chore.difficulty || ChoreDifficulty.MEDIUM,
       assigneeId: chore.assigneeId,
       status: ChoreStatus.PENDING,
       createdAt: now,

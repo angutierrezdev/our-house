@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Person, Chore, ChoreStatus, ChorePriority } from "../types";
+import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, deleteChore } from "../services/dataService";
-import { CheckCircle2, Clock, Trash2, Plus, Calendar, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, Trash2, Plus, Calendar, Zap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import ChoreModal from "../components/ChoreModal";
 import { PRIORITY_CONFIG } from "../constants";
@@ -24,7 +24,7 @@ const Dashboard: React.FC = () => {
   const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING || c.status === ChoreStatus.IN_PROGRESS);
   const completedChores = chores.filter((c) => c.status === ChoreStatus.COMPLETED);
 
-  // Chart Data: Tasks completed per person (approximation based on assigned tasks that are completed)
+  // Chart Data: Tasks completed per person
   const chartData = people.map(person => {
     const count = completedChores.filter(c => c.assigneeId === person.id).length;
     return { name: person.name, completed: count, color: person.color };
@@ -45,6 +45,15 @@ const Dashboard: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingChore(undefined);
+  };
+
+  const getDifficultyColor = (diff: ChoreDifficulty) => {
+    switch (diff) {
+      case ChoreDifficulty.EASY: return 'text-green-600 bg-green-50 border-green-100';
+      case ChoreDifficulty.MEDIUM: return 'text-orange-600 bg-orange-50 border-orange-100';
+      case ChoreDifficulty.HARD: return 'text-red-600 bg-red-50 border-red-100';
+      default: return 'text-gray-600 bg-gray-50 border-gray-100';
+    }
   };
 
   return (
@@ -119,6 +128,10 @@ const Dashboard: React.FC = () => {
                           <h4 className="font-medium text-gray-900 truncate max-w-full">{chore.title}</h4>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
                             {priorityConfig.label}
+                          </span>
+                          <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                            <Zap className="w-2.5 h-2.5" />
+                            {chore.difficulty || 'medium'}
                           </span>
                           {chore.status === ChoreStatus.IN_PROGRESS && (
                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">

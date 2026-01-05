@@ -26,12 +26,19 @@ export enum ChorePriority {
   WHENEVER = 'whenever',
 }
 
+export enum ChoreDifficulty {
+  EASY = 'easy',
+  MEDIUM = 'medium',
+  HARD = 'hard',
+}
+
 export interface Chore {
   id: string;
   title: string;
   description: string;
   frequency: ChoreFrequency;
   priority: ChorePriority;
+  difficulty: ChoreDifficulty;
   assigneeId: string; // can be empty string if unassigned
   status: ChoreStatus;
   completedAt?: number; // timestamp

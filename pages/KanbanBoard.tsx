@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Person, Chore, ChoreStatus, ChorePriority } from "../types";
+import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, updateChore } from "../services/dataService";
-import { Calendar, User, ArrowRight, Check } from "lucide-react";
+import { Calendar, User, ArrowRight, Check, Zap } from "lucide-react";
 import ChoreModal from "../components/ChoreModal";
 import { PRIORITY_CONFIG } from "../constants";
 
@@ -74,6 +74,15 @@ const KanbanBoard: React.FC = () => {
     const el = columnRefs.current[columnId];
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  };
+
+  const getDifficultyColor = (diff: ChoreDifficulty) => {
+    switch (diff) {
+      case ChoreDifficulty.EASY: return 'text-green-600 bg-green-50 border-green-100';
+      case ChoreDifficulty.MEDIUM: return 'text-orange-600 bg-orange-50 border-orange-100';
+      case ChoreDifficulty.HARD: return 'text-red-600 bg-red-50 border-red-100';
+      default: return 'text-gray-600 bg-gray-50 border-gray-100';
     }
   };
 
@@ -156,6 +165,13 @@ const KanbanBoard: React.FC = () => {
                                   <h3 className="font-medium text-gray-900 leading-snug text-sm md:text-base">{chore.title}</h3>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ml-2 flex-shrink-0 ${priorityConfig.class}`}>
                                     {priorityConfig.label}
+                                  </span>
+                                </div>
+
+                                <div className="flex gap-2 mb-3">
+                                  <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                                    <Zap className="w-2.5 h-2.5" />
+                                    {chore.difficulty || 'medium'}
                                   </span>
                                 </div>
                                 
