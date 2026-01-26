@@ -5,9 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: '/our-house/',
       server: {
-        port: 3100,
+        port: 3000,
         host: '0.0.0.0',
       },
       plugins: [react()],

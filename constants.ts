@@ -1,6 +1,6 @@
 import { ChorePriority } from "./types";
 
-export const APP_NAME = "ChoreMaster";
+export const APP_NAME = "Our House";
 
 export const COLORS = [
   "#EF4444", // Red
