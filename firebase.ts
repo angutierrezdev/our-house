@@ -1,10 +1,12 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getSettings } from "./services/settingsService";
 
-// TODO: Replace with your Firebase project configuration
+const settings = getSettings();
+
 // If these values are empty, the app will fall back to LocalStorage automatically.
-const firebaseConfig = {
-  apiKey: "", // e.g., "AIzaSy..."
+const firebaseConfig = settings.firebaseConfig || {
+  apiKey: "",
   authDomain: "",
   projectId: "",
   storageBucket: "",

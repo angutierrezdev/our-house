@@ -10,7 +10,7 @@ import {
   Timestamp
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "../firebase";
-import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople } from "./localStorage";
+import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople, generateId } from "./localStorage";
 import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addWeeks, addMonths, addDays, addYears } from "date-fns";
 import { PRIORITY_WEIGHTS } from "../constants";
@@ -63,7 +63,7 @@ export const addPerson = async (person: Omit<Person, "id">) => {
     await addDoc(collection(db, "people"), person);
   } else {
     const people = getLocalPeople();
-    const newPerson = { ...person, id: crypto.randomUUID() };
+    const newPerson = { ...person, id: generateId() };
     saveLocalPeople([...people, newPerson]);
   }
 };
@@ -119,7 +119,7 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
     await addDoc(collection(db, "chores"), chore);
   } else {
     const chores = getLocalChores();
-    const newChore = { ...chore, id: crypto.randomUUID() };
+    const newChore = { ...chore, id: generateId() };
     saveLocalChores([...chores, newChore]);
   }
 };

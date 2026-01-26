@@ -58,15 +58,19 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
     e.preventDefault();
     const timestamp = dueDate ? new Date(dueDate).getTime() : undefined;
 
-    const choreData = {
+    const choreData: any = {
       title,
       description,
       frequency,
       priority,
       difficulty,
       assigneeId,
-      dueDate: timestamp
     };
+
+    // Only add dueDate if it has a value (Firestore doesn't allow undefined)
+    if (timestamp !== undefined) {
+      choreData.dueDate = timestamp;
+    }
 
     if (existingChore) {
       await updateChore(existingChore.id, choreData as Partial<Chore>);
