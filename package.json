@@ -9,15 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "recharts": "^3.4.1",
-    "react-dom": "^19.2.0",
-    "react": "^19.2.0",
-    "react-router-dom": "^7.9.6",
     "@google/genai": "^1.30.0",
-    "lucide-react": "^0.554.0",
-    "firebase": "^12.6.0",
+    "@hello-pangea/dnd": "^18.0.1",
     "date-fns": "^4.1.0",
-    "@hello-pangea/dnd": "^18.0.1"
+    "firebase": "^12.6.0",
+    "html5-qrcode": "^2.3.8",
+    "lucide-react": "^0.554.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6",
+    "recharts": "^3.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
