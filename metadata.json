@@ -1,6 +1,5 @@
 {
   "name": "Our House",
-  "version": "2.1.2",
   "description": "A modern house chore management application with Kanban boards, recurring tasks, and AI-powered suggestions. Supports Firebase persistence with a local storage fallback.",
   "requestFramePermissions": []
 }

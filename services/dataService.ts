@@ -6,11 +6,10 @@ import {
   doc, 
   onSnapshot, 
   query, 
-  orderBy,
-  Timestamp
+  orderBy
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "../firebase";
-import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople, generateId } from "./localStorage";
+import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople } from "./localStorage";
 import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addWeeks, addMonths, addDays, addYears } from "date-fns";
 import { PRIORITY_WEIGHTS } from "../constants";
@@ -19,6 +18,13 @@ import { PRIORITY_WEIGHTS } from "../constants";
 type Unsubscribe = () => void;
 
 // --- Helper Functions ---
+
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
 
 const sortChores = (chores: Chore[]): Chore[] => {
   return chores.sort((a, b) => {
@@ -31,7 +37,6 @@ const sortChores = (chores: Chore[]): Chore[] => {
     }
 
     // 2. Sort by Due Date (Earliest first)
-    // Items with due dates come before items without due dates if priorities are equal
     if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
     if (a.dueDate) return -1; 
     if (b.dueDate) return 1;
@@ -50,9 +55,7 @@ export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubsc
       callback(people);
     });
   } else {
-    // Local Storage Fallback
     callback(getLocalPeople());
-    // Mock subscription for local storage (simple polling or event dispatch could be better, but valid for this scope)
     const interval = setInterval(() => callback(getLocalPeople()), 1000);
     return () => clearInterval(interval);
   }
@@ -81,8 +84,6 @@ export const deletePerson = async (id: string) => {
 
 export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscribe => {
   if (isFirebaseConfigured && db) {
-    // Note: Removed orderBy("dueDate") to ensure docs without dueDate are not filtered out by Firestore.
-    // Sorting will happen client-side.
     const q = query(collection(db, "chores"));
     return onSnapshot(q, (snapshot) => {
       const chores = snapshot.docs.map(doc => {
@@ -90,12 +91,10 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
         return { 
           id: doc.id, 
           ...data,
-          // Handle migration for old chores that might not have priority or difficulty
           priority: data.priority || ChorePriority.SOON,
           difficulty: data.difficulty || ChoreDifficulty.MEDIUM
         } as Chore;
       });
-      
       callback(sortChores(chores));
     });
   } else {
@@ -107,7 +106,6 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
         difficulty: c.difficulty || ChoreDifficulty.MEDIUM
       })));
     };
-
     callback(getAndSort());
     const interval = setInterval(() => callback(getAndSort()), 1000);
     return () => clearInterval(interval);
@@ -146,19 +144,17 @@ export const deleteChore = async (id: string) => {
 export const completeChore = async (chore: Chore) => {
   const now = Date.now();
   
-  // 1. Mark current as completed
-  await updateChore(chore.id, {
+  const { id, ...choreData } = chore;
+  await updateChore(id, {
+    ...choreData,
     status: ChoreStatus.COMPLETED,
     completedAt: now
   });
 
-  // 2. Handle Recurring Logic
   if (chore.frequency !== ChoreFrequency.ONE_TIME) {
-    // If due date exists, use it as base. If not, use 'now'.
     const baseDate = chore.dueDate ? new Date(chore.dueDate) : new Date(now);
     let nextDueDate: number | undefined = undefined;
     
-    // Calculate next due date based on frequency
     if (chore.frequency === ChoreFrequency.DAILY) {
       nextDueDate = addDays(baseDate, 1).getTime();
     } else if (chore.frequency === ChoreFrequency.WEEKLY) {
@@ -169,7 +165,6 @@ export const completeChore = async (chore: Chore) => {
       nextDueDate = addYears(baseDate, 1).getTime();
     }
 
-    // Create new instance
     const newChore: Omit<Chore, "id"> = {
       title: chore.title,
       description: chore.description,
@@ -179,7 +174,7 @@ export const completeChore = async (chore: Chore) => {
       assigneeId: chore.assigneeId,
       status: ChoreStatus.PENDING,
       createdAt: now,
-      // Only set dueDate if calculated
+      checklist: chore.checklist ? chore.checklist.map(item => ({ ...item, id: generateId(), completed: false })) : undefined,
       ...(nextDueDate ? { dueDate: nextDueDate } : {})
     };
     

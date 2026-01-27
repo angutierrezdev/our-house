@@ -5,6 +5,12 @@ export interface Person {
   avatar?: string;
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export enum ChoreFrequency {
   ONE_TIME = 'one-time',
   DAILY = 'daily',
@@ -44,6 +50,7 @@ export interface Chore {
   completedAt?: number; // timestamp
   dueDate?: number; // timestamp (optional)
   createdAt: number; // timestamp
+  checklist?: ChecklistItem[];
 }
 
 export interface AppState {

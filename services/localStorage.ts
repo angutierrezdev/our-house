@@ -1,12 +1,5 @@
 import { Chore, Person } from "../types";
 
-export const generateId = (): string => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-};
-
 const CHORES_KEY = "choremaster_chores";
 const PEOPLE_KEY = "choremaster_people";
 

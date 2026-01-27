@@ -1,27 +1,21 @@
 const SETTINGS_KEY = "choremaster_settings";
 
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+}
+
 export interface AppSettings {
   aiEnabled: boolean;
-  firebaseConfig?: {
-    apiKey: string;
-    authDomain: string;
-    projectId: string;
-    storageBucket: string;
-    messagingSenderId: string;
-    appId: string;
-  };
+  firebaseConfig?: FirebaseConfig;
 }
 
 const defaultSettings: AppSettings = {
   aiEnabled: true,
-  firebaseConfig: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
-  }
 };
 
 export const getSettings = (): AppSettings => {

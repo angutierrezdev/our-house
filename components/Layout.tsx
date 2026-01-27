@@ -76,7 +76,7 @@ const Layout: React.FC = () => {
         {navLinks.map((link) => (
           <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, true)}>
             <link.icon className={`w-6 h-6 ${location.pathname === link.to ? 'mb-1' : 'mb-0'}`} />
-            <span className="text-xs font-medium">{link.label}</span>
+            <span className="text-[10px] font-medium">{link.label}</span>
           </NavLink>
         ))}
       </nav>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, deleteChore } from "../services/dataService";
-import { CheckCircle2, Clock, Trash2, Plus, Calendar, Zap } from "lucide-react";
+import { CheckCircle2, Clock, Trash2, Plus, Calendar, Zap, ListChecks } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import ChoreModal from "../components/ChoreModal";
 import { PRIORITY_CONFIG } from "../constants";
@@ -24,7 +24,6 @@ const Dashboard: React.FC = () => {
   const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING || c.status === ChoreStatus.IN_PROGRESS);
   const completedChores = chores.filter((c) => c.status === ChoreStatus.COMPLETED);
 
-  // Chart Data: Tasks completed per person
   const chartData = people.map(person => {
     const count = completedChores.filter(c => c.assigneeId === person.id).length;
     return { name: person.name, completed: count, color: person.color };
@@ -47,6 +46,23 @@ const Dashboard: React.FC = () => {
     setEditingChore(undefined);
   };
 
+  const handleCompleteWithChecklist = async (e: React.MouseEvent, chore: Chore) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const hasUnfinished = chore.checklist?.some(item => !item.completed);
+    
+    if (hasUnfinished) {
+      const confirmAll = window.confirm("The checklist is not fully completed. Mark all items as done and complete the task?");
+      if (confirmAll) {
+        const updatedChecklist = chore.checklist?.map(item => ({ ...item, completed: true }));
+        await completeChore({ ...chore, checklist: updatedChecklist });
+      }
+    } else {
+      await completeChore(chore);
+    }
+  };
+
   const getDifficultyColor = (diff: ChoreDifficulty) => {
     switch (diff) {
       case ChoreDifficulty.EASY: return 'text-green-600 bg-green-50 border-green-100';
@@ -58,7 +74,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between md:justify-start">
           <div className="flex items-center gap-4">
@@ -84,20 +99,20 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
            <button 
+             type="button"
              onClick={handleAddChore}
              className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
            >
              <Plus className="w-5 h-5" />
-             Add New Task
+             Add New Chore
            </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Task List */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Upcoming Tasks</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
           </div>
           <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
             {pendingChores.length === 0 ? (
@@ -107,39 +122,58 @@ const Dashboard: React.FC = () => {
                 const assignee = getAssignee(chore.assigneeId);
                 const priorityConfig = PRIORITY_CONFIG[chore.priority] || PRIORITY_CONFIG[ChorePriority.SOON];
                 
+                const checklistTotal = chore.checklist?.length || 0;
+                const checklistDone = chore.checklist?.filter(i => i.completed).length || 0;
+                const progressPercent = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
+
                 return (
                   <div 
                     key={chore.id} 
                     onClick={() => handleEditChore(chore)}
                     className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group cursor-pointer active:bg-gray-100"
                   >
-                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden flex-1">
                       <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          completeChore(chore);
-                        }}
-                        className="text-gray-300 hover:text-green-500 active:text-green-600 transition-colors flex-shrink-0 p-1"
+                        type="button"
+                        onClick={(e) => handleCompleteWithChecklist(e, chore)}
+                        className="text-gray-400 hover:text-green-600 active:text-green-700 transition-colors flex-shrink-0 p-1"
+                        title="Complete task"
                       >
-                        <CheckCircle2 className="w-6 h-6" />
+                        <CheckCircle2 className="w-7 h-7" />
                       </button>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium text-gray-900 truncate max-w-full">{chore.title}</h4>
-                          <span className={`text-xs px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
                             {priorityConfig.label}
                           </span>
-                          <span className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                          <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
                             <Zap className="w-2.5 h-2.5" />
                             {chore.difficulty || 'medium'}
                           </span>
                           {chore.status === ChoreStatus.IN_PROGRESS && (
-                             <span className="text-xs px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
+                             <span className="text-[10px] px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
                                In Progress
                              </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1 flex-wrap">
+                        
+                        {checklistTotal > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold">
+                               <span className="flex items-center gap-1"><ListChecks className="w-3 h-3" /> {checklistDone}/{checklistTotal} Items</span>
+                               <span>{Math.round(progressPercent)}%</span>
+                            </div>
+                            <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 transition-all duration-500" 
+                                style={{ width: `${progressPercent}%` }} 
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1.5 flex-wrap">
                           {assignee ? (
                             <div className="flex items-center gap-1.5">
                               <div 
@@ -164,9 +198,13 @@ const Dashboard: React.FC = () => {
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        deleteChore(chore.id);
+                        if (window.confirm("Delete this chore permanently?")) {
+                          deleteChore(chore.id);
+                        }
                       }}
                       className="text-gray-300 hover:text-red-500 p-2 md:opacity-0 group-hover:opacity-100 transition-all ml-2"
                     >
@@ -179,7 +217,6 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Chart */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h2 className="text-lg font-semibold text-gray-800 mb-6">Completion Stats</h2>
           <div className="h-64">

@@ -1,5 +1,4 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { ChoreFrequency } from "../types";
 
 export const generateChoreSuggestions = async (context: string): Promise<{ title: string, frequency: string }[]> => {
   if (!process.env.API_KEY) {
@@ -14,7 +13,7 @@ export const generateChoreSuggestions = async (context: string): Promise<{ title
     Return the result as a JSON array of objects with "title" and "frequency" (one-time, daily, weekly, monthly, or yearly).`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
