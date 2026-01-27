@@ -1,9 +1,10 @@
-const VERSION = '2.1.1'; // Increment this to trigger update
+const VERSION = '2.1.2'; // Increment this to trigger update
 const CACHE_NAME = `our-house-v${VERSION}`;
+const BASE_PATH = '/our-house';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  `${BASE_PATH}/`,
+  `${BASE_PATH}/index.html`,
+  `${BASE_PATH}/manifest.json`
 ];
 
 self.addEventListener('install', event => {

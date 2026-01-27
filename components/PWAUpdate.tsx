@@ -8,7 +8,7 @@ const PWAUpdate: React.FC = () => {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       // Register the service worker
-      navigator.serviceWorker.register('/sw.js').then((registration) => {
+      navigator.serviceWorker.register('/our-house/sw.js').then((registration) => {
         // Check if there is already a waiting worker
         if (registration.waiting) {
           setWaitingWorker(registration.waiting);
