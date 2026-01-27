@@ -88,7 +88,7 @@ const Dashboard: React.FC = () => {
              className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
            >
              <Plus className="w-5 h-5" />
-             Add New Chore
+             Add New Task
            </button>
         </div>
       </div>
@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
         {/* Task List */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Upcoming Tasks</h2>
           </div>
           <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
             {pendingChores.length === 0 ? (
