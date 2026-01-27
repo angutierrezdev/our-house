@@ -2,7 +2,7 @@
   "name": "Our House",
   "short_name": "Our House",
   "description": "Manage your house chores effectively with AI and Kanban.",
-  "start_url": "/our-house/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#3b82f6",

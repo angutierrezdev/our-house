@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Save, ShieldCheck, Database, RefreshCw, Share2, QrCode, Clipboard, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Camera } from "lucide-react";
+import { Sparkles, Save, ShieldCheck, Database, RefreshCw, Share2, QrCode, Clipboard, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Camera, Trash2, RotateCcw } from "lucide-react";
 import { getSettings, saveSettings, AppSettings } from "../services/settingsService";
 import { QRCodeCanvas } from "qrcode.react";
 import QRScanner from "../components/QRScanner";
@@ -11,6 +11,7 @@ const Settings: React.FC = () => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [pendingConfig, setPendingConfig] = useState<AppSettings["firebaseConfig"] | null>(null);
   const [copyStatus, setCopyStatus] = useState(false);
+  const [isDeregistered, setIsDeregistered] = useState(false);
 
   const handleToggleAI = () => {
     const newSettings = { ...settings, aiEnabled: !settings.aiEnabled };
@@ -79,6 +80,19 @@ const Settings: React.FC = () => {
   };
 
   const isConfigured = !!settings.firebaseConfig?.apiKey;
+
+  const handleDeregisterSW = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => reg.unregister());
+        setIsDeregistered(true);
+        setTimeout(() => {
+          setIsDeregistered(false);
+          window.location.reload();
+        }, 1500);
+      });
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
@@ -223,7 +237,45 @@ const Settings: React.FC = () => {
 
           <div className="flex items-center gap-3 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 opacity-60">
              <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-             <p className="text-xs">Saved locally in your browser.</p>
+             <p className="text-xs">Your settings are saved locally in your browser.</p>
+          </div>
+
+          {/* Troubleshooting Section */}
+          <div className="border-t border-gray-100 pt-6">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-gray-400" />
+              Troubleshooting
+            </h3>
+            <div className="p-4 bg-red-50 rounded-xl border border-red-100 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-red-900">Force Clear Cache</h4>
+                <p className="text-xs text-red-700 mt-1">
+                  If you're experiencing issues or the app is not updating, you can deregister the service worker. 
+                  This will force the app to reload and fetch the latest version.
+                </p>
+              </div>
+              <button 
+                onClick={handleDeregisterSW}
+                disabled={isDeregistered}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  isDeregistered 
+                    ? 'bg-green-100 text-green-700 border border-green-200' 
+                    : 'bg-red-600 text-white hover:bg-red-700 shadow-md active:scale-95'
+                }`}
+              >
+                {isDeregistered ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Deregistered! Reloading...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Deregister Service Worker
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {savedStatus && (
