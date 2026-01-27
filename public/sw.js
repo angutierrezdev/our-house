@@ -1,12 +1,14 @@
-const CACHE_NAME = 'our-house-v2';
+const VERSION = '2.1.1'; // Increment this to trigger update
+const CACHE_NAME = `our-house-v${VERSION}`;
 const urlsToCache = [
-  '/our-house/',
-  '/our-house/index.html',
-  '/our-house/manifest.json'
+  '/',
+  '/index.html',
+  '/manifest.json'
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
+  // We don't skipWaiting() automatically here anymore 
+  // to allow the user to see the notification if the app is open.
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
@@ -33,4 +35,11 @@ self.addEventListener('fetch', event => {
     caches.match(event.request)
       .then(response => response || fetch(event.request))
   );
+});
+
+// Handle messages from the client
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
