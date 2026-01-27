@@ -163,13 +163,13 @@ const KanbanBoard: React.FC = () => {
                               >
                                 <div className="flex justify-between items-start mb-2">
                                   <h3 className="font-medium text-gray-900 leading-snug text-sm md:text-base">{chore.title}</h3>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ml-2 flex-shrink-0 ${priorityConfig.class}`}>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded border whitespace-nowrap ml-2 flex-shrink-0 ${priorityConfig.class}`}>
                                     {priorityConfig.label}
                                   </span>
                                 </div>
 
                                 <div className="flex gap-2 mb-3">
-                                  <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                                  <span className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
                                     <Zap className="w-2.5 h-2.5" />
                                     {chore.difficulty || 'medium'}
                                   </span>

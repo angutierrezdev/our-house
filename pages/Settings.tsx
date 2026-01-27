@@ -12,6 +12,40 @@ const Settings: React.FC = () => {
   const [pendingConfig, setPendingConfig] = useState<AppSettings["firebaseConfig"] | null>(null);
   const [copyStatus, setCopyStatus] = useState(false);
   const [isDeregistered, setIsDeregistered] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [swVersion, setSwVersion] = useState<string | null>(null);
+
+  // Fetch app and service worker versions on component mount
+  useEffect(() => {
+    const fetchVersions = async () => {
+      try {
+        // Fetch app version from metadata.json
+        const response = await fetch('/our-house/metadata.json');
+        const data = await response.json();
+        setAppVersion(data.version || null);
+
+        // Fetch service worker version
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          if (registrations.length > 0) {
+            const registration = registrations[0];
+            if (registration.active) {
+              // Request version from service worker
+              const channel = new MessageChannel();
+              channel.port1.onmessage = (event) => {
+                setSwVersion(event.data.version || null);
+              };
+              registration.active.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch versions:', error);
+      }
+    };
+
+    fetchVersions();
+  }, []);
 
   const handleToggleAI = () => {
     const newSettings = { ...settings, aiEnabled: !settings.aiEnabled };
@@ -287,8 +321,12 @@ const Settings: React.FC = () => {
         </div>
       </div>
       
-      <div className="bg-gray-100 p-4 rounded-xl text-center">
-        <p className="text-xs text-gray-400 font-mono">ChoreMaster v2.1.0-qr-sync</p>
+      <div className="bg-gray-100 p-4 rounded-xl text-center space-y-2">
+        <p className="text-xs text-gray-600 font-semibold">App Version & Cache</p>
+        <div className="space-y-1">
+          <p className="text-xs text-gray-500 font-mono">App: {appVersion || 'Loading...'}</p>
+          <p className="text-xs text-gray-500 font-mono">Service Worker: {swVersion || 'Loading...'}</p>
+        </div>
       </div>
 
       {/* Overlays */}

@@ -126,15 +126,15 @@ const Dashboard: React.FC = () => {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium text-gray-900 truncate max-w-full">{chore.title}</h4>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
+                          <span className={`text-xs px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
                             {priorityConfig.label}
                           </span>
-                          <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                          <span className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
                             <Zap className="w-2.5 h-2.5" />
                             {chore.difficulty || 'medium'}
                           </span>
                           {chore.status === ChoreStatus.IN_PROGRESS && (
-                             <span className="text-[10px] px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
+                             <span className="text-xs px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
                                In Progress
                              </span>
                           )}
