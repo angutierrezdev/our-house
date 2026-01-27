@@ -98,7 +98,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">
-            {existingChore ? "Edit Chore" : "New Chore"}
+            {existingChore ? "Edit Task" : "New Task"}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
