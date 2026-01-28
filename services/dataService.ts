@@ -170,7 +170,15 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await updateDoc(doc(db, "chores", id), updates);
+    // Remove undefined values to prevent Firebase errors
+    const cleanedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
+    await updateDoc(doc(db, "chores", id), cleanedUpdates);
+  } else {
+    const chores = getLocalChores();
+    const updated = chores.map(c => c.id === id ? { ...c, ...updates } : c);
+    saveLocalChores(updated);
   }
 };
 
