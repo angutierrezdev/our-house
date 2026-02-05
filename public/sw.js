@@ -4,7 +4,19 @@ const BASE_PATH = '/our-house';
 const urlsToCache = [
   `${BASE_PATH}/`,
   `${BASE_PATH}/index.html`,
-  `${BASE_PATH}/manifest.json`
+  `${BASE_PATH}/manifest.json`,
+  // Icons
+  `${BASE_PATH}/icons/favicon.ico`,
+  `${BASE_PATH}/icons/favicon.png`,
+  `${BASE_PATH}/icons/apple-touch-icon.png`,
+  `${BASE_PATH}/icons/icon-192x192.png`,
+  `${BASE_PATH}/icons/icon-384x384.png`,
+  `${BASE_PATH}/icons/icon-512x512.png`,
+  // Splash screens
+  `${BASE_PATH}/icons/splash-540x720.png`,
+  `${BASE_PATH}/icons/splash-750x1280.png`,
+  `${BASE_PATH}/icons/splash-1080x1440.png`,
+  `${BASE_PATH}/icons/splash-1536x2048.png`
 ];
 
 // Fetch version from metadata.json at service worker startup

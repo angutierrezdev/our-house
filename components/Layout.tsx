@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Kanban, Users, CheckCircle2, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Kanban, Users, Settings as SettingsIcon } from "lucide-react";
 import { ROUTES, APP_NAME } from "../constants";
 import { isFirebaseConfigured } from "../firebase";
 
@@ -33,8 +33,12 @@ const Layout: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       {/* Mobile Top Header */}
       <header className="md:hidden bg-white border-b border-gray-200 p-4 sticky top-0 z-30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-6 h-6 text-blue-600" />
+        <div className="flex items-center gap-3">
+          <img 
+            src="/our-house/icons/icon-192x192.png" 
+            alt="Our House" 
+            className="w-7 h-7"
+          />
           <h1 className="text-lg font-bold text-gray-900">{APP_NAME}</h1>
         </div>
         <div className={`w-3 h-3 rounded-full ${isFirebaseConfigured ? "bg-green-500" : "bg-yellow-500"}`} title={isFirebaseConfigured ? "Online" : "Offline"} />
@@ -42,8 +46,12 @@ const Layout: React.FC = () => {
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col fixed inset-y-0 left-0 z-20">
-        <div className="p-6 flex items-center gap-2 border-b border-gray-100">
-          <CheckCircle2 className="w-8 h-8 text-blue-600" />
+        <div className="p-6 flex items-center gap-3 border-b border-gray-100">
+          <img 
+            src="/our-house/icons/icon-192x192.png" 
+            alt="Our House" 
+            className="w-8 h-8"
+          />
           <h1 className="text-xl font-bold text-gray-900">{APP_NAME}</h1>
         </div>
 
