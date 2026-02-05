@@ -94,6 +94,9 @@ const PWAUpdate: React.FC = () => {
       
       const version = await fetchCurrentVersion();
       setCurrentVersion(version);
+      
+      // Get the previously stored version for comparison
+      const storedVersion = getStoredVersion();
 
       // Platform-specific initialization
       if (detectedPlatform === 'ios') {
@@ -108,15 +111,19 @@ const PWAUpdate: React.FC = () => {
           
           // Check if there is already a waiting worker
           if (registration.waiting) {
-            const shouldAutoUpdate = checkIsInitialLoad();
-            if (shouldAutoUpdate) {
-              // Auto-update on initial load without notification
-              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            } else {
-              // Show notification when app is running
-              setWaitingWorker(registration.waiting);
-              setShowNotification(true);
-              setNewVersion(version);
+            // Only show notification if version has actually changed from stored version
+            if (version && (!storedVersion || version !== storedVersion)) {
+              const shouldAutoUpdate = checkIsInitialLoad();
+              if (shouldAutoUpdate) {
+                // Auto-update on initial load without notification
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              } else {
+                // Show notification when app is running
+                setWaitingWorker(registration.waiting);
+                setShowNotification(true);
+                setNewVersion(version);
+                storeVersionInStorage(version);
+              }
             }
           }
 
@@ -127,15 +134,20 @@ const PWAUpdate: React.FC = () => {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // New version found and installed!
-                  const isInitialLoad = checkIsInitialLoad();
-                  if (isInitialLoad) {
-                    // Auto-update on initial load
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                  } else {
-                    // Show notification when app is running
-                    setWaitingWorker(newWorker);
-                    setShowNotification(true);
-                    setNewVersion(version);
+                  // Only show notification if version has actually changed from stored version
+                  if (version && (!storedVersion || version !== storedVersion)) {
+                    const isInitialLoad = checkIsInitialLoad();
+                    if (isInitialLoad) {
+                      // Auto-update on initial load
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      storeVersionInStorage(version);
+                    } else {
+                      // Show notification when app is running
+                      setWaitingWorker(newWorker);
+                      setShowNotification(true);
+                      setNewVersion(version);
+                      storeVersionInStorage(version);
+                    }
                   }
                 }
               });
