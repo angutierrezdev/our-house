@@ -29,3 +29,6 @@ dist-ssr
 *.sw?
 # Playwright MCP
 .playwright-mcp/
+
+# Generated analysis and reports
+tech-debt-report.json

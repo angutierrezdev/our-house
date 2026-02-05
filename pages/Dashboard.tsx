@@ -104,7 +104,7 @@ const Dashboard: React.FC = () => {
              className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
            >
              <Plus className="w-5 h-5" />
-             Add New Chore
+             Add New Task
            </button>
         </div>
       </div>
