@@ -1,10 +1,14 @@
 import React, { useState } from "react";
-import { Sparkles, Save, ShieldCheck, Database, RefreshCw, AlertCircle } from "lucide-react";
+import { Sparkles, Save, ShieldCheck, Database, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { getSettings, saveSettings, AppSettings, FirebaseConfig } from "../services/settingsService";
+import { initializeApp, deleteApp, getApps } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { syncLocalDataToFirebase } from "../services/dataService";
 
 const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(getSettings());
   const [savedStatus, setSavedStatus] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [fbConfig, setFbConfig] = useState<FirebaseConfig>(settings.firebaseConfig || {
     apiKey: "",
     authDomain: "",
@@ -29,19 +33,50 @@ const Settings: React.FC = () => {
     });
   };
 
-  const saveFirebaseConfig = () => {
-    const newSettings = { ...settings, firebaseConfig: fbConfig };
-    setSettings(newSettings);
-    saveSettings(newSettings);
-    // Reload is required because Firebase initialization happens at module load
-    window.location.reload();
+  const saveFirebaseConfig = async () => {
+    if (!fbConfig.apiKey || !fbConfig.projectId) {
+      alert("Please provide at least an API Key and Project ID.");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // 1. Temporary initialization to perform migration
+      // Check if there's an existing temporary app and clean up
+      const existingTemp = getApps().find(a => a.name === "temp-migration");
+      if (existingTemp) await deleteApp(existingTemp);
+
+      const tempApp = initializeApp(fbConfig, "temp-migration");
+      const tempDb = getFirestore(tempApp);
+
+      // 2. Perform the one-way sync from local to the new Firebase
+      await syncLocalDataToFirebase(tempDb);
+
+      // 3. Save settings and reload
+      const newSettings = { ...settings, firebaseConfig: fbConfig };
+      setSettings(newSettings);
+      saveSettings(newSettings);
+      
+      // Give it a moment for the user to see success before reloading
+      setSavedStatus(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error("Failed to sync to Firebase:", err);
+      alert("Failed to connect to Firebase. Please check your configuration values.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const clearFirebaseConfig = () => {
-    const newSettings = { ...settings, firebaseConfig: undefined };
-    setSettings(newSettings);
-    saveSettings(newSettings);
-    window.location.reload();
+    if (window.confirm("Disconnect from Firebase? Your data will remain on this device but will no longer sync to the cloud.")) {
+      const newSettings = { ...settings, firebaseConfig: undefined };
+      setSettings(newSettings);
+      saveSettings(newSettings);
+      window.location.reload();
+    }
   };
 
   return (
@@ -67,6 +102,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="ml-4">
               <button
+                type="button"
                 onClick={handleToggleAI}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
                   settings.aiEnabled ? 'bg-purple-600' : 'bg-gray-300'
@@ -89,7 +125,8 @@ const Settings: React.FC = () => {
             </div>
             
             <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-              Connect your own Firebase project to sync tasks across all your devices. If left empty, data will only be stored locally on this device.
+              Connect your own Firebase project to sync tasks across all your devices. 
+              <strong> When you first connect, your local tasks will be uploaded to the cloud.</strong>
             </p>
 
             <div className="grid grid-cols-1 gap-4">
@@ -156,14 +193,21 @@ const Settings: React.FC = () => {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <button
+                type="button"
+                disabled={isSyncing}
                 onClick={saveFirebaseConfig}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
               >
-                <RefreshCw className="w-4 h-4" />
-                Save and Connect
+                {isSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                {isSyncing ? "Syncing Data..." : "Save and Connect"}
               </button>
               {settings.firebaseConfig && (
                 <button
+                  type="button"
                   onClick={clearFirebaseConfig}
                   className="bg-white text-red-600 border border-red-200 px-6 py-2 rounded-lg font-medium hover:bg-red-50 transition-colors"
                 >
@@ -175,28 +219,27 @@ const Settings: React.FC = () => {
             <div className="mt-4 flex items-start gap-3 p-4 bg-amber-50 text-amber-800 rounded-lg border border-amber-100">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <p className="text-xs leading-relaxed">
-                Updating these settings will reload the application to establish a new connection. 
-                Ensure your Firestore rules allow read/write access for your data to sync properly.
+                Syncing will upload your local tasks and people to the cloud. This ensures you can access your data from any device once connected.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
              <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-             <p className="text-xs">Your configurations are stored securely in your browser's local storage.</p>
+             <p className="text-xs">Your configurations and task backups are stored in your browser's local storage for offline use.</p>
           </div>
 
           {savedStatus && (
             <div className="flex items-center gap-2 text-green-600 text-sm font-medium animate-pulse">
                <Save className="w-4 h-4" />
-               Settings updated!
+               Settings updated successfully!
             </div>
           )}
         </div>
       </div>
       
       <div className="bg-gray-100 p-4 rounded-xl text-center">
-        <p className="text-xs text-gray-400">Our House v2.1.0 • PWA Enabled</p>
+        <p className="text-xs text-gray-400">Our House v2.2.0 • Cloud Sync Enabled</p>
       </div>
     </div>
   );

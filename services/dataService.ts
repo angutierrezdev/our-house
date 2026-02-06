@@ -1,12 +1,13 @@
 import { 
   collection, 
-  addDoc, 
+  setDoc, 
   updateDoc, 
   deleteDoc, 
   doc, 
   onSnapshot, 
   query, 
-  orderBy
+  getDocs,
+  writeBatch
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "../firebase";
 import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople } from "./localStorage";
@@ -28,7 +29,6 @@ const generateId = () => {
 
 const sortChores = (chores: Chore[]): Chore[] => {
   return chores.sort((a, b) => {
-    // 1. Sort by Priority
     const weightA = PRIORITY_WEIGHTS[a.priority] ?? 99;
     const weightB = PRIORITY_WEIGHTS[b.priority] ?? 99;
     
@@ -36,7 +36,6 @@ const sortChores = (chores: Chore[]): Chore[] => {
       return weightA - weightB;
     }
 
-    // 2. Sort by Due Date (Earliest first)
     if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
     if (a.dueDate) return -1; 
     if (b.dueDate) return 1;
@@ -45,44 +44,88 @@ const sortChores = (chores: Chore[]): Chore[] => {
   });
 };
 
+/**
+ * Migrates local data to Firebase. Used when first connecting.
+ */
+export const syncLocalDataToFirebase = async (targetDb: any) => {
+  if (!targetDb) return;
+
+  const localPeople = getLocalPeople();
+  const localChores = getLocalChores();
+
+  const batch = writeBatch(targetDb);
+
+  // Sync People
+  localPeople.forEach(person => {
+    const personRef = doc(targetDb, "people", person.id);
+    batch.set(personRef, person);
+  });
+
+  // Sync Chores
+  localChores.forEach(chore => {
+    const choreRef = doc(targetDb, "chores", chore.id);
+    batch.set(choreRef, chore);
+  });
+
+  await batch.commit();
+};
+
 // --- People Operations ---
 
 export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubscribe => {
+  // Always start with local data for instant load
+  const initialData = getLocalPeople();
+  callback(initialData);
+
   if (isFirebaseConfigured && db) {
-    const q = query(collection(db, "people"), orderBy("name"));
+    const q = query(collection(db, "people"));
     return onSnapshot(q, (snapshot) => {
       const people = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Person));
-      callback(people);
+      // Sort alphabetically for consistency
+      const sortedPeople = people.sort((a, b) => a.name.localeCompare(b.name));
+      // Update local cache
+      saveLocalPeople(sortedPeople);
+      callback(sortedPeople);
     });
   } else {
-    callback(getLocalPeople());
-    const interval = setInterval(() => callback(getLocalPeople()), 1000);
-    return () => clearInterval(interval);
+    // If not firebase, we just rely on the initial load. 
+    // In a real app we might use a window event listener for local changes.
+    return () => {};
   }
 };
 
 export const addPerson = async (person: Omit<Person, "id">) => {
+  const id = generateId();
+  const newPerson = { ...person, id };
+  
+  // 1. Update Local
+  const people = getLocalPeople();
+  saveLocalPeople([...people, newPerson]);
+
+  // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await addDoc(collection(db, "people"), person);
-  } else {
-    const people = getLocalPeople();
-    const newPerson = { ...person, id: generateId() };
-    saveLocalPeople([...people, newPerson]);
+    await setDoc(doc(db, "people", id), newPerson);
   }
 };
 
 export const deletePerson = async (id: string) => {
+  // 1. Update Local
+  const people = getLocalPeople();
+  saveLocalPeople(people.filter(p => p.id !== id));
+
+  // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db, "people", id));
-  } else {
-    const people = getLocalPeople();
-    saveLocalPeople(people.filter(p => p.id !== id));
   }
 };
 
 // --- Chore Operations ---
 
 export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscribe => {
+  // Instant load from cache
+  const initialData = getLocalChores();
+  callback(sortChores(initialData));
+
   if (isFirebaseConfigured && db) {
     const q = query(collection(db, "chores"));
     return onSnapshot(q, (snapshot) => {
@@ -95,55 +138,57 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
           difficulty: data.difficulty || ChoreDifficulty.MEDIUM
         } as Chore;
       });
-      callback(sortChores(chores));
+      const sorted = sortChores(chores);
+      // Update local cache
+      saveLocalChores(sorted);
+      callback(sorted);
     });
   } else {
-    const getAndSort = () => {
-      const chores = getLocalChores();
-      return sortChores(chores.map(c => ({
-        ...c,
-        priority: c.priority || ChorePriority.SOON,
-        difficulty: c.difficulty || ChoreDifficulty.MEDIUM
-      })));
-    };
-    callback(getAndSort());
-    const interval = setInterval(() => callback(getAndSort()), 1000);
-    return () => clearInterval(interval);
+    return () => {};
   }
 };
 
 export const addChore = async (chore: Omit<Chore, "id">) => {
+  const id = generateId();
+  const newChore = { ...chore, id } as Chore;
+
+  // 1. Update Local
+  const chores = getLocalChores();
+  saveLocalChores(sortChores([...chores, newChore]));
+
+  // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await addDoc(collection(db, "chores"), chore);
-  } else {
-    const chores = getLocalChores();
-    const newChore = { ...chore, id: generateId() };
-    saveLocalChores([...chores, newChore]);
+    await setDoc(doc(db, "chores", id), newChore);
   }
 };
 
 export const updateChore = async (id: string, updates: Partial<Chore>) => {
+  // 1. Update Local
+  const chores = getLocalChores();
+  const updated = chores.map(c => c.id === id ? { ...c, ...updates } : c);
+  saveLocalChores(sortChores(updated));
+
+  // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await updateDoc(doc(db, "chores", id), updates);
-  } else {
-    const chores = getLocalChores();
-    const updated = chores.map(c => c.id === id ? { ...c, ...updates } : c);
-    saveLocalChores(updated);
   }
 };
 
 export const deleteChore = async (id: string) => {
+  // 1. Update Local
+  const chores = getLocalChores();
+  saveLocalChores(chores.filter(c => c.id !== id));
+
+  // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db, "chores", id));
-  } else {
-    const chores = getLocalChores();
-    saveLocalChores(chores.filter(c => c.id !== id));
   }
 };
 
 export const completeChore = async (chore: Chore) => {
   const now = Date.now();
   
+  // 1. Mark current as completed
   const { id, ...choreData } = chore;
   await updateChore(id, {
     ...choreData,
@@ -151,6 +196,7 @@ export const completeChore = async (chore: Chore) => {
     completedAt: now
   });
 
+  // 2. Handle Recurring Logic
   if (chore.frequency !== ChoreFrequency.ONE_TIME) {
     const baseDate = chore.dueDate ? new Date(chore.dueDate) : new Date(now);
     let nextDueDate: number | undefined = undefined;
@@ -165,7 +211,7 @@ export const completeChore = async (chore: Chore) => {
       nextDueDate = addYears(baseDate, 1).getTime();
     }
 
-    const newChore: Omit<Chore, "id"> = {
+    const nextChore: Omit<Chore, "id"> = {
       title: chore.title,
       description: chore.description,
       frequency: chore.frequency,
@@ -178,6 +224,6 @@ export const completeChore = async (chore: Chore) => {
       ...(nextDueDate ? { dueDate: nextDueDate } : {})
     };
     
-    await addChore(newChore);
+    await addChore(nextChore);
   }
 };

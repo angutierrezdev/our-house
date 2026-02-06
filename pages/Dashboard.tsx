@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, deleteChore } from "../services/dataService";
 import { CheckCircle2, Clock, Trash2, Plus, Calendar, Zap, ListChecks } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
 import ChoreModal from "../components/ChoreModal";
 import { PRIORITY_CONFIG } from "../constants";
 
@@ -217,15 +217,37 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col">
           <h2 className="text-lg font-semibold text-gray-800 mb-6">Completion Stats</h2>
-          <div className="h-64">
+          <div className="h-64 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <XAxis dataKey="name" tick={{fontSize: 12}} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="completed" radius={[4, 4, 0, 0]}>
+              <BarChart 
+                data={chartData} 
+                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{fontSize: 11, fill: '#6b7280'}} 
+                  axisLine={false}
+                  tickLine={false}
+                  dy={10}
+                />
+                <YAxis 
+                  allowDecimals={false} 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{fontSize: 11, fill: '#9ca3af'}}
+                />
+                <Tooltip 
+                  cursor={{fill: '#f9fafb'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Bar 
+                  dataKey="completed" 
+                  radius={[6, 6, 0, 0]} 
+                  barSize={32}
+                >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
