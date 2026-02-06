@@ -88,13 +88,14 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
       priority,
       difficulty,
       assigneeId,
+      dueDate: timestamp,
       checklist,
       status: targetStatus
     };
 
     // Add dueDate only when timestamp is defined because Firebase's addDoc function breaks if undefined is sent
-    if (timestamp) {
-      (choreData as any).dueDate = timestamp;
+    if (!timestamp) {
+      delete choreData.dueDate;
     }
 
     if (existingChore) {

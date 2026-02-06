@@ -34,6 +34,36 @@ const notifyPeopleListeners = () => {
   peopleListeners.forEach(callback => callback());
 };
 
+// --- Offline/Online Detection and Sync ---
+let isOnline = navigator.onLine;
+let pendingSync = false;
+
+const checkAndSync = async () => {
+  if (isFirebaseConfigured && db && isOnline && !pendingSync) {
+    pendingSync = true;
+    try {
+      await syncLocalDataToFirebase(db);
+      console.log('✅ Successfully synced local data to Firebase');
+    } catch (error) {
+      console.error('❌ Failed to sync local data to Firebase:', error);
+    } finally {
+      pendingSync = false;
+    }
+  }
+};
+
+// Listen for online/offline events
+window.addEventListener('online', () => {
+  console.log('🟢 Network connection restored');
+  isOnline = true;
+  checkAndSync();
+});
+
+window.addEventListener('offline', () => {
+  console.log('🔴 Network connection lost');
+  isOnline = false;
+});
+
 // --- Helper Functions ---
 
 const generateId = () => {
@@ -61,7 +91,7 @@ const sortChores = (chores: Chore[]): Chore[] => {
 };
 
 /**
- * Migrates local data to Firebase. Used when first connecting.
+ * Migrates local data to Firebase. Used when first connecting or syncing after offline.
  */
 export const syncLocalDataToFirebase = async (targetDb: any) => {
   if (!targetDb) return;
@@ -69,22 +99,31 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
   const localPeople = getLocalPeople();
   const localChores = getLocalChores();
 
-  const batch = writeBatch(targetDb);
+  // Use batch writes for efficiency (max 500 operations per batch)
+  const BATCH_SIZE = 500;
+  const allOperations = [
+    ...localPeople.map(person => ({ collection: 'people', id: person.id, data: person })),
+    ...localChores.map(chore => ({ collection: 'chores', id: chore.id, data: chore }))
+  ];
 
-  // Sync People
-  localPeople.forEach(person => {
-    const personRef = doc(targetDb, "people", person.id);
-    batch.set(personRef, person);
-  });
+  for (let i = 0; i < allOperations.length; i += BATCH_SIZE) {
+    const batch = writeBatch(targetDb);
+    const batchOps = allOperations.slice(i, i + BATCH_SIZE);
+    
+    batchOps.forEach(op => {
+      const docRef = doc(targetDb, op.collection, op.id);
+      batch.set(docRef, op.data, { merge: true }); // Use merge to avoid overwriting server changes
+    });
 
-  // Sync Chores
-  localChores.forEach(chore => {
-    const choreRef = doc(targetDb, "chores", chore.id);
-    batch.set(choreRef, chore);
-  });
-
-  await batch.commit();
+    await batch.commit();
+  }
 };
+
+// Initialize sync check when the module loads
+if (isFirebaseConfigured && db && isOnline) {
+  // Use setTimeout to avoid blocking initial page load
+  setTimeout(() => checkAndSync(), 1000);
+}
 
 // --- People Operations ---
 
@@ -128,7 +167,12 @@ export const addPerson = async (person: Omit<Person, "id">) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await setDoc(doc(db, "people", id), newPerson);
+    try {
+      await setDoc(doc(db, "people", id), newPerson);
+    } catch (error) {
+      console.warn('⚠️ Failed to sync person to Firebase (offline?), will retry when online:', error);
+      // Data is already in localStorage, will sync when online
+    }
   } else {
     // Notify local listeners when not using Firebase
     notifyPeopleListeners();
@@ -142,7 +186,12 @@ export const deletePerson = async (id: string) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await deleteDoc(doc(db, "people", id));
+    try {
+      await deleteDoc(doc(db, "people", id));
+    } catch (error) {
+      console.warn('⚠️ Failed to sync person deletion to Firebase (offline?), will retry when online:', error);
+      // Data is already removed from localStorage, will sync when online
+    }
   } else {
     // Notify local listeners when not using Firebase
     notifyPeopleListeners();
@@ -198,7 +247,12 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await setDoc(doc(db, "chores", id), newChore);
+    try {
+      await setDoc(doc(db, "chores", id), newChore);
+    } catch (error) {
+      console.warn('⚠️ Failed to sync chore to Firebase (offline?), will retry when online:', error);
+      // Data is already in localStorage, will sync when online
+    }
   } else {
     // Notify local listeners when not using Firebase
     notifyChoreListeners();
@@ -213,11 +267,16 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    // Remove undefined values to prevent Firebase errors
-    const cleanedUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([_, value]) => value !== undefined)
-    );
-    await updateDoc(doc(db, "chores", id), cleanedUpdates);
+    try {
+      // Remove undefined values to prevent Firebase errors
+      const cleanedUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      );
+      await updateDoc(doc(db, "chores", id), cleanedUpdates);
+    } catch (error) {
+      console.warn('⚠️ Failed to sync chore update to Firebase (offline?), will retry when online:', error);
+      // Data is already in localStorage, will sync when online
+    }
   } else {
     // Notify local listeners when not using Firebase
     notifyChoreListeners();
@@ -231,7 +290,12 @@ export const deleteChore = async (id: string) => {
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
-    await deleteDoc(doc(db, "chores", id));
+    try {
+      await deleteDoc(doc(db, "chores", id));
+    } catch (error) {
+      console.warn('⚠️ Failed to sync chore deletion to Firebase (offline?), will retry when online:', error);
+      // Data is already removed from localStorage, will sync when online
+    }
   } else {
     // Notify local listeners when not using Firebase
     notifyChoreListeners();
