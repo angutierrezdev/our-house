@@ -18,6 +18,22 @@ import { PRIORITY_WEIGHTS } from "../constants";
 // Listeners type
 type Unsubscribe = () => void;
 
+// --- Local Change Notification System ---
+// Simple pub-sub to notify subscribers when localStorage changes occur
+
+type LocalChangeCallback = () => void;
+
+const choreListeners = new Set<LocalChangeCallback>();
+const peopleListeners = new Set<LocalChangeCallback>();
+
+const notifyChoreListeners = () => {
+  choreListeners.forEach(callback => callback());
+};
+
+const notifyPeopleListeners = () => {
+  peopleListeners.forEach(callback => callback());
+};
+
 // --- Helper Functions ---
 
 const generateId = () => {
@@ -88,16 +104,24 @@ export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubsc
       callback(sortedPeople);
     });
   } else {
-    // If not firebase, we just rely on the initial load. 
-    // In a real app we might use a window event listener for local changes.
-    return () => {};
+    // Set up local change listener when Firebase is not configured
+    const localListener = () => {
+      const people = getLocalPeople();
+      callback(people);
+    };
+    peopleListeners.add(localListener);
+
+    // Return cleanup function to remove listener
+    return () => {
+      peopleListeners.delete(localListener);
+    };
   }
 };
 
 export const addPerson = async (person: Omit<Person, "id">) => {
   const id = generateId();
   const newPerson = { ...person, id };
-  
+
   // 1. Update Local
   const people = getLocalPeople();
   saveLocalPeople([...people, newPerson]);
@@ -105,6 +129,9 @@ export const addPerson = async (person: Omit<Person, "id">) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await setDoc(doc(db, "people", id), newPerson);
+  } else {
+    // Notify local listeners when not using Firebase
+    notifyPeopleListeners();
   }
 };
 
@@ -116,6 +143,9 @@ export const deletePerson = async (id: string) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db, "people", id));
+  } else {
+    // Notify local listeners when not using Firebase
+    notifyPeopleListeners();
   }
 };
 
@@ -131,8 +161,8 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
     return onSnapshot(q, (snapshot) => {
       const chores = snapshot.docs.map(doc => {
         const data = doc.data();
-        return { 
-          id: doc.id, 
+        return {
+          id: doc.id,
           ...data,
           priority: data.priority || ChorePriority.SOON,
           difficulty: data.difficulty || ChoreDifficulty.MEDIUM
@@ -144,7 +174,17 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
       callback(sorted);
     });
   } else {
-    return () => {};
+    // Set up local change listener when Firebase is not configured
+    const localListener = () => {
+      const chores = getLocalChores();
+      callback(sortChores(chores));
+    };
+    choreListeners.add(localListener);
+
+    // Return cleanup function to remove listener
+    return () => {
+      choreListeners.delete(localListener);
+    };
   }
 };
 
@@ -159,6 +199,9 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await setDoc(doc(db, "chores", id), newChore);
+  } else {
+    // Notify local listeners when not using Firebase
+    notifyChoreListeners();
   }
 };
 
@@ -176,9 +219,8 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
     );
     await updateDoc(doc(db, "chores", id), cleanedUpdates);
   } else {
-    const chores = getLocalChores();
-    const updated = chores.map(c => c.id === id ? { ...c, ...updates } : c);
-    saveLocalChores(updated);
+    // Notify local listeners when not using Firebase
+    notifyChoreListeners();
   }
 };
 
@@ -190,6 +232,9 @@ export const deleteChore = async (id: string) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db, "chores", id));
+  } else {
+    // Notify local listeners when not using Firebase
+    notifyChoreListeners();
   }
 };
 
