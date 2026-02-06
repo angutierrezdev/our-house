@@ -328,7 +328,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
             type="submit"
             className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-bold text-sm shadow-md active:scale-[0.98]"
           >
-            {existingChore ? "Save Changes" : "Create Chore"}
+            {existingChore ? "Save Changes" : "Create Task"}
           </button>
         </div>
       </div>
