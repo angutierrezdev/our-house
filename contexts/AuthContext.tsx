@@ -74,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setProfile(null);
           setHouseholdIdState(null);
           setHouseholdId(null);
+          setAuthLoading(false);
         }
       } else {
         // Signed out — clear everything and unscope dataService
