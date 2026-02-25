@@ -16,6 +16,7 @@ import {
   writeBatch,
   query,
   where,
+  onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
@@ -128,6 +129,19 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   if (!db) return null;
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? (snap.data() as UserProfile) : null;
+};
+
+export const subscribeToUserProfile = (
+  uid: string,
+  callback: (profile: UserProfile | null) => void
+): (() => void) => {
+  if (!db) {
+    callback(null);
+    return () => {};
+  }
+  return onSnapshot(doc(db, "users", uid), (snap) => {
+    callback(snap.exists() ? (snap.data() as UserProfile) : null);
+  });
 };
 
 // ─── Migration ───────────────────────────────────────────────────────────────
