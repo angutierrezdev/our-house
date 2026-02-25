@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { Home, Users, Loader2, AlertCircle } from "lucide-react";
 import { createHousehold, joinHousehold } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
-import { setHouseholdId, syncLocalDataToFirebase } from "../services/dataService";
-import { db } from "../firebase";
 
 const HouseholdSetupSheet: React.FC = () => {
   const { user } = useAuth();
@@ -19,10 +17,9 @@ const HouseholdSetupSheet: React.FC = () => {
     setError(null);
     setLoadingCreate(true);
     try {
-      const household = await createHousehold(user.uid, householdName.trim());
-      // Update dataService so subscriptions switch to scoped paths immediately
-      setHouseholdId(household.id);
-      if (db) await syncLocalDataToFirebase(db);
+      await createHousehold(user.uid, householdName.trim());
+      // AuthContext's real-time profile subscription will detect the new
+      // householdId and call setHouseholdId + syncLocalDataToFirebase.
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create household.");
     } finally {
@@ -36,9 +33,9 @@ const HouseholdSetupSheet: React.FC = () => {
     setError(null);
     setLoadingJoin(true);
     try {
-      const household = await joinHousehold(user.uid, inviteCode.trim());
-      setHouseholdId(household.id);
-      if (db) await syncLocalDataToFirebase(db);
+      await joinHousehold(user.uid, inviteCode.trim());
+      // AuthContext's real-time profile subscription will detect the new
+      // householdId and call setHouseholdId.
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to join household.");
     } finally {
