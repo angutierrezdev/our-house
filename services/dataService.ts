@@ -18,6 +18,21 @@ import { PRIORITY_WEIGHTS } from "../constants";
 // Listeners type
 type Unsubscribe = () => void;
 
+// --- Household Scoping ---
+// Set by AuthContext once a user is authenticated and has a household.
+// When null, all reads/writes fall back to localStorage only.
+let _householdId: string | null = null;
+
+export const setHouseholdId = (id: string | null): void => {
+  _householdId = id;
+};
+
+export const getHouseholdId = (): string | null => _householdId;
+
+/** Returns 'households/{hid}/people' or 'people' depending on auth state */
+const colPath = (name: "people" | "chores"): string =>
+  _householdId ? `households/${_householdId}/${name}` : name;
+
 // --- Local Change Notification System ---
 // Simple pub-sub to notify subscribers when localStorage changes occur
 
@@ -102,8 +117,8 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
   // Use batch writes for efficiency (max 500 operations per batch)
   const BATCH_SIZE = 500;
   const allOperations = [
-    ...localPeople.map(person => ({ collection: 'people', id: person.id, data: person })),
-    ...localChores.map(chore => ({ collection: 'chores', id: chore.id, data: chore }))
+    ...localPeople.map(person => ({ collection: colPath('people'), id: person.id, data: person })),
+    ...localChores.map(chore => ({ collection: colPath('chores'), id: chore.id, data: chore }))
   ];
 
   for (let i = 0; i < allOperations.length; i += BATCH_SIZE) {
@@ -133,7 +148,7 @@ export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubsc
   callback(initialData);
 
   if (isFirebaseConfigured && db) {
-    const q = query(collection(db, "people"));
+    const q = query(collection(db, colPath("people")));
     return onSnapshot(q, (snapshot) => {
       const people = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Person));
       // Sort alphabetically for consistency
@@ -168,7 +183,7 @@ export const addPerson = async (person: Omit<Person, "id">) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "people", id), newPerson);
+      await setDoc(doc(db, colPath("people"), id), newPerson);
     } catch (error) {
       console.warn('⚠️ Failed to sync person to Firebase (offline?), will retry when online:', error);
       // Data is already in localStorage, will sync when online
@@ -187,7 +202,7 @@ export const deletePerson = async (id: string) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
-      await deleteDoc(doc(db, "people", id));
+      await deleteDoc(doc(db, colPath("people"), id));
     } catch (error) {
       console.warn('⚠️ Failed to sync person deletion to Firebase (offline?), will retry when online:', error);
       // Data is already removed from localStorage, will sync when online
@@ -206,7 +221,7 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
   callback(sortChores(initialData));
 
   if (isFirebaseConfigured && db) {
-    const q = query(collection(db, "chores"));
+    const q = query(collection(db, colPath("chores")));
     return onSnapshot(q, (snapshot) => {
       const chores = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -248,7 +263,7 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "chores", id), newChore);
+      await setDoc(doc(db, colPath("chores"), id), newChore);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore to Firebase (offline?), will retry when online:', error);
       // Data is already in localStorage, will sync when online
@@ -272,7 +287,7 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
       const cleanedUpdates = Object.fromEntries(
         Object.entries(updates).filter(([_, value]) => value !== undefined)
       );
-      await updateDoc(doc(db, "chores", id), cleanedUpdates);
+      await updateDoc(doc(db, colPath("chores"), id), cleanedUpdates);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore update to Firebase (offline?), will retry when online:', error);
       // Data is already in localStorage, will sync when online
@@ -291,7 +306,7 @@ export const deleteChore = async (id: string) => {
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
-      await deleteDoc(doc(db, "chores", id));
+      await deleteDoc(doc(db, colPath("chores"), id));
     } catch (error) {
       console.warn('⚠️ Failed to sync chore deletion to Firebase (offline?), will retry when online:', error);
       // Data is already removed from localStorage, will sync when online
