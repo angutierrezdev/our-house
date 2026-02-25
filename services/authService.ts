@@ -66,16 +66,19 @@ export const signUp = async (email: string, password: string): Promise<User> => 
   if (!auth) throw new Error("Firebase Auth is not configured.");
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
-  // Create empty user profile using a batch to ensure the write is atomic on Firestore
-  const batch = writeBatch(db!);
-  const userRef = doc(db!, "users", user.uid);
-  batch.set(userRef, {
-    uid: user.uid,
-    email,
-    householdId: null,
-    role: "member",
-  });
-  await batch.commit();
+  // Create empty user profile
+  if (db) {
+    // Create empty user profile using a batch to ensure the write is atomic on Firestore
+    const batch = writeBatch(db!);
+    const userRef = doc(db!, "users", user.uid);
+    batch.set(userRef, {
+      uid: user.uid,
+      email,
+      householdId: null,
+      role: "member",
+    });
+    await batch.commit();
+  }
 
   return user;
 };
