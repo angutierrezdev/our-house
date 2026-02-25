@@ -12,7 +12,7 @@ import {
   UserProfile,
 } from "../services/authService";
 import { setHouseholdId, syncLocalDataToFirebase } from "../services/dataService";
-import { db } from "../firebase";
+import { db, isFirebaseConfigured } from "../firebase";
 
 // ─── Context Types ────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [householdId, setHouseholdIdState] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(isFirebaseConfigured);
 
   // Ensure we only sync local data to Firebase once per session
   const didSync = useRef(false);

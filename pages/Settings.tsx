@@ -22,11 +22,15 @@ const Settings: React.FC = () => {
     }
   }, [householdId]);
 
-  const handleCopyInvite = () => {
+  const handleCopyInvite = async () => {
     if (household?.inviteCode) {
-      navigator.clipboard.writeText(household.inviteCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(household.inviteCode);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy invite code:", err);
+      }
     }
   };
 
