@@ -38,6 +38,7 @@ const HouseholdSetupSheet: React.FC = () => {
     try {
       const household = await joinHousehold(user.uid, inviteCode.trim());
       setHouseholdId(household.id);
+      if (db) await syncLocalDataToFirebase(db);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to join household.");
     } finally {
