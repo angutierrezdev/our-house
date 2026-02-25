@@ -170,7 +170,7 @@ const migrateExistingDataToHousehold = async (
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
     const batch = writeBatch(db);
     ops.slice(i, i + BATCH_SIZE).forEach((op) => {
-      batch.set(doc(db!, op.path, op.id), op.data, { merge: true });
+      batch.set(doc(collection(db!, op.path), op.id), op.data, { merge: true });
     });
     await batch.commit();
   }
