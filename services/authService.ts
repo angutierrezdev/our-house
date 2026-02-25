@@ -49,12 +49,14 @@ export const signUp = async (email: string, password: string): Promise<User> => 
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
   // Create empty user profile
-  await setDoc(doc(db!, "users", user.uid), {
-    uid: user.uid,
-    email,
-    householdId: null,
-    role: "member",
-  });
+  if (db) {
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email,
+      householdId: null,
+      role: "member",
+    });
+  }
 
   return user;
 };
