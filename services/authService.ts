@@ -39,9 +39,26 @@ export interface HouseholdInfo {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const generateInviteCode = () =>
-  Math.random().toString(36).substring(2, 8).toUpperCase();
+const generateInviteCode = (): string => {
+  const length = 6;
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
+  // Prefer cryptographically strong random values when available
+  const cryptoObj = typeof crypto !== "undefined" ? crypto : (globalThis as any).crypto;
+  if (cryptoObj && typeof cryptoObj.getRandomValues === "function") {
+    const randomValues = new Uint32Array(length);
+    cryptoObj.getRandomValues(randomValues);
+    let code = "";
+    for (let i = 0; i < length; i++) {
+      const index = randomValues[i] % charset.length;
+      code += charset.charAt(index);
+    }
+    return code;
+  }
+
+  // Fallback to Math.random() if crypto is not available
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const signUp = async (email: string, password: string): Promise<User> => {
