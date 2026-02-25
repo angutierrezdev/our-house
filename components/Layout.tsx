@@ -1,11 +1,14 @@
 import React from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Kanban, Users, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Kanban, Users, Settings as SettingsIcon, Cloud } from "lucide-react";
 import { ROUTES, APP_NAME } from "../constants";
 import { isFirebaseConfigured } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 
 const Layout: React.FC = () => {
   const location = useLocation();
+  const { user } = useAuth();
+  const showSyncNudge = isFirebaseConfigured && !user;
 
   const navLinks = [
     { to: ROUTES.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
@@ -89,6 +92,34 @@ const Layout: React.FC = () => {
         </div>
       </aside>
 
+      {/* Right column: nudge + content */}
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+        {/* Sync nudge banner */}
+        {showSyncNudge && (
+          <div className="bg-blue-50 border-b border-blue-100 text-blue-700 text-xs py-1.5 px-4 flex items-center justify-center gap-1.5">
+            <Cloud className="w-3 h-3 flex-shrink-0" />
+            <span>Sign in to sync across devices.</span>
+            <NavLink to={ROUTES.SETTINGS} className="underline font-semibold">Set up in Settings</NavLink>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1 p-4 pb-24 md:p-8 overflow-x-hidden">
+          <div className="max-w-6xl mx-auto h-full">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-40 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
+        {navLinks.map((link) => (
+          <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, true)}>
+            <link.icon className={`w-6 h-6 ${location.pathname === link.to ? 'mb-1' : 'mb-0'}`} />
+            <span className="text-[10px] font-medium">{link.label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 };
