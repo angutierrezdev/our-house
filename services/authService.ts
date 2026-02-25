@@ -223,6 +223,8 @@ export const joinHousehold = async (
     role: "member",
   }, { merge: true });
 
+  // Run migration for existing user data now that they have joined a household
+  await migrateExistingDataToHousehold(uid, household.id);
   return household;
 };
 
