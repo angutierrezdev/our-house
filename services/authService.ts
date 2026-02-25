@@ -11,14 +11,15 @@ import {
   doc,
   getDoc,
   setDoc,
+  writeBatch,
   collection,
   getDocs,
-  writeBatch,
   query,
   where,
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { getLocalPeople, getLocalChores } from "./localStorage";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -66,16 +67,19 @@ export const signUp = async (email: string, password: string): Promise<User> => 
   if (!auth) throw new Error("Firebase Auth is not configured.");
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
-  // Create empty user profile using a batch to ensure the write is atomic on Firestore
-  const batch = writeBatch(db!);
-  const userRef = doc(db!, "users", user.uid);
-  batch.set(userRef, {
-    uid: user.uid,
-    email,
-    householdId: null,
-    role: "member",
-  });
-  await batch.commit();
+  // Create empty user profile
+  if (db) {
+    // Create empty user profile using a batch to ensure the write is atomic on Firestore
+    const batch = writeBatch(db!);
+    const userRef = doc(db!, "users", user.uid);
+    batch.set(userRef, {
+      uid: user.uid,
+      email,
+      householdId: null,
+      role: "member",
+    });
+    await batch.commit();
+  }
 
   return user;
 };
@@ -159,13 +163,13 @@ const migrateExistingDataToHousehold = async (
   const userSnap = await getDoc(doc(db, "users", uid));
   if (userSnap.data()?.migratedAt) return;
 
-  const [peopleSnap, choresSnap] = await Promise.all([
-    getDocs(collection(db, "people")),
-    getDocs(collection(db, "chores")),
-  ]);
+  // Only run for users who have pre-existing local data. New users will have
+  // nothing in localStorage and should skip migration entirely.
+  const localPeople = getLocalPeople();
+  const localChores = getLocalChores();
 
-  if (peopleSnap.empty && choresSnap.empty) {
-    // Nothing to migrate — just mark done
+  if (localPeople.length === 0 && localChores.length === 0) {
+    // No pre-existing data — mark done and skip
     await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
     return;
   }
@@ -174,11 +178,11 @@ const migrateExistingDataToHousehold = async (
   const BATCH_SIZE = 400;
   const ops: Array<{ path: string; id: string; data: Record<string, unknown> }> = [];
 
-  peopleSnap.forEach((d) =>
-    ops.push({ path: `households/${householdId}/people`, id: d.id, data: d.data() })
+  localPeople.forEach((p) =>
+    ops.push({ path: `households/${householdId}/people`, id: p.id, data: p as unknown as Record<string, unknown> })
   );
-  choresSnap.forEach((d) =>
-    ops.push({ path: `households/${householdId}/chores`, id: d.id, data: d.data() })
+  localChores.forEach((c) =>
+    ops.push({ path: `households/${householdId}/chores`, id: c.id, data: c as unknown as Record<string, unknown> })
   );
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
@@ -192,7 +196,7 @@ const migrateExistingDataToHousehold = async (
   // Mark migration complete
   await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
   console.log(
-    `✅ Migrated ${peopleSnap.size} people + ${choresSnap.size} chores → households/${householdId}`
+    `✅ Migrated ${localPeople.length} people + ${localChores.length} chores → households/${householdId}`
   );
 };
 
