@@ -14,10 +14,9 @@ import {
   collection,
   getDocs,
   writeBatch,
-  query,
-  where,
 } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../firebase";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -183,69 +182,39 @@ const migrateExistingDataToHousehold = async (
 };
 
 // ─── Household ────────────────────────────────────────────────────────────────
+// createHousehold and joinHousehold are implemented as Cloud Functions so that
+// role and householdId are written by trusted server-side code (Admin SDK) rather
+// than directly from the client.  The Firestore rules explicitly block client
+// writes to those fields.
 
 export const createHousehold = async (
   uid: string,
   name: string
 ): Promise<HouseholdInfo> => {
-  if (!db) throw new Error("Firebase is not configured.");
+  if (!functions) throw new Error("Firebase is not configured.");
 
-  const householdId = crypto.randomUUID();
-  const inviteCode = generateInviteCode();
-  const now = Date.now();
+  const fn = httpsCallable<{ name: string }, HouseholdInfo>(functions, "createHousehold");
+  const result = await fn({ name });
 
-  const household: HouseholdInfo = {
-    id: householdId,
-    name,
-    inviteCode,
-    createdBy: uid,
-    createdAt: now,
-  };
+  // Migrate any pre-existing flat Firestore data into the new household subcollections.
+  if (db) await migrateExistingDataToHousehold(uid, result.data.id);
 
-  // Write household doc
-  await setDoc(doc(db, "households", householdId), household);
-
-  // Link user → household (merge so it works even if the doc was never created)
-  await setDoc(doc(db, "users", uid), {
-    uid,
-    householdId,
-    role: "admin",
-  }, { merge: true });
-
-  // Run migration (existing flat Firestore data → scoped subcollections)
-  await migrateExistingDataToHousehold(uid, householdId);
-
-  return household;
+  return result.data;
 };
 
 export const joinHousehold = async (
   uid: string,
   inviteCode: string
 ): Promise<HouseholdInfo> => {
-  if (!db) throw new Error("Firebase is not configured.");
+  if (!functions) throw new Error("Firebase is not configured.");
 
-  // Find household by invite code
-  const q = query(
-    collection(db, "households"),
-    where("inviteCode", "==", inviteCode.toUpperCase())
-  );
-  const householdsSnap = await getDocs(q);
-  const match = householdsSnap.docs[0];
+  const fn = httpsCallable<{ inviteCode: string }, HouseholdInfo>(functions, "joinHousehold");
+  const result = await fn({ inviteCode });
 
-  if (!match) throw new Error("Invalid invite code. Please check and try again.");
+  // Migrate any pre-existing flat Firestore data into the joined household.
+  if (db) await migrateExistingDataToHousehold(uid, result.data.id);
 
-  const household = { id: match.id, ...match.data() } as HouseholdInfo;
-
-  // Link user → household (merge so it works even if the doc was never created)
-  await setDoc(doc(db, "users", uid), {
-    uid,
-    householdId: household.id,
-    role: "member",
-  }, { merge: true });
-
-  // Run migration for existing user data now that they have joined a household
-  await migrateExistingDataToHousehold(uid, household.id);
-  return household;
+  return result.data;
 };
 
 export const getHouseholdInfo = async (

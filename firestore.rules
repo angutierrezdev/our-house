@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Deny everything by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{uid} {
+      // Users can read their own profile.
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Initial profile creation (sign-up / Google sign-in):
+      // only allowed with role='member' and householdId=null so that
+      // no client can bootstrap a privileged profile.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.role == 'member'
+                    && request.resource.data.householdId == null;
+
+      // Client-side updates may not touch role or householdId.
+      // Household assignment and role elevation are performed exclusively
+      // by the createHousehold / joinHousehold Cloud Functions (Admin SDK),
+      // which bypass these rules.
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && !request.resource.data.diff(resource.data)
+                        .affectedKeys().hasAny(['role', 'householdId']);
+    }
+
+    match /households/{householdId} {
+      allow read: if isMember(householdId);
+      allow create: if request.auth != null
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isAdmin(householdId);
+    }
+
+    match /households/{householdId}/people/{personId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidPerson(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidPerson(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/chores/{choreId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidChore(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidChore(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    function isMember(householdId) {
+      return request.auth != null
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+               .data.householdId == householdId;
+    }
+
+    function isAdmin(householdId) {
+      return isMember(householdId)
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+               .data.role == 'admin';
+    }
+
+    function isValidPerson(data) {
+      return data.keys().hasAll(['id', 'name'])
+          && data.id is string
+          && data.name is string;
+    }
+
+    function isValidChore(data) {
+      return data.keys().hasAll(['id', 'title'])
+          && data.id is string
+          && data.title is string;
+    }
+  }
+}
