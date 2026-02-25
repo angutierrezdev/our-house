@@ -29,9 +29,13 @@ export const setHouseholdId = (id: string | null): void => {
 
 export const getHouseholdId = (): string | null => _householdId;
 
-/** Returns 'households/{hid}/people' or 'people' depending on auth state */
-const colPath = (name: "people" | "chores"): string =>
-  _householdId ? `households/${_householdId}/${name}` : name;
+/** Returns 'households/{hid}/{name}' and disallows flat collections when no household is set */
+const colPath = (name: "people" | "chores"): string => {
+  if (!_householdId) {
+    throw new Error("Household ID is required for Firestore operations.");
+  }
+  return `households/${_householdId}/${name}`;
+};
 
 // --- Local Change Notification System ---
 // Simple pub-sub to notify subscribers when localStorage changes occur
