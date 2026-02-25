@@ -149,6 +149,37 @@ export const createHousehold = async (name: string): Promise<HouseholdInfo> => {
   const fn = httpsCallable<{ name: string }, HouseholdInfo>(functions!, "createHousehold");
   const result = await fn({ name });
   return result.data;
+/** Create a brand new household; sets the caller as admin */
+const generateInviteCode = (length: number = 16): string => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += alphabet[bytes[i] % alphabet.length];
+  }
+  return result;
+};
+
+export const createHousehold = async (uid: string, email: string, householdName: string) => {
+  const householdId = crypto.randomUUID();
+  const inviteCode = generateInviteCode(16);
+
+  await setDoc(doc(db!, "households", householdId), {
+    name: householdName,
+    createdBy: uid,
+    inviteCode,
+    createdAt: Date.now()
+  });
+
+  await setDoc(doc(db!, "users", uid), {
+    uid,
+    email,
+    householdId,
+    role: "admin"
+  });
+
+  return householdId;
 };
 
 /**

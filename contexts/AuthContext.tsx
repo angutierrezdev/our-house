@@ -8,11 +8,11 @@ import React, {
 import { User } from "firebase/auth";
 import {
   subscribeToAuthState,
-  getUserProfile,
+  subscribeToUserProfile,
   UserProfile,
 } from "../services/authService";
 import { setHouseholdId, syncLocalDataToFirebase } from "../services/dataService";
-import { db } from "../firebase";
+import { db, isFirebaseConfigured } from "../firebase";
 
 // ─── Context Types ────────────────────────────────────────────────────────────
 
@@ -38,18 +38,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [householdId, setHouseholdIdState] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(isFirebaseConfigured);
 
   // Ensure we only sync local data to Firebase once per session
   const didSync = useRef(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
+    let profileUnsub: (() => void) | null = null;
+
+    const authUnsub = subscribeToAuthState((firebaseUser) => {
+      // Clean up any previous profile subscription when auth state changes
+      if (profileUnsub) {
+        profileUnsub();
+        profileUnsub = null;
+      }
+
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        try {
-          const p = await getUserProfile(firebaseUser.uid);
+        // Subscribe to the user profile document in real-time so AuthContext
+        // automatically detects household creation/joining without re-login.
+        profileUnsub = subscribeToUserProfile(firebaseUser.uid, (p) => {
           setProfile(p);
 
           const hid = p?.householdId ?? null;
@@ -62,32 +71,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // a household is available for the first time in this session.
           if (hid && !didSync.current && db) {
             didSync.current = true;
-            try {
-              await syncLocalDataToFirebase(db);
-              console.log("✅ localStorage synced to household Firestore");
-            } catch (err) {
-              console.warn("⚠️ Sync failed:", err);
-            }
+            syncLocalDataToFirebase(db)
+              .then(() => console.log("✅ localStorage synced to household Firestore"))
+              .catch((err) => console.warn("⚠️ Sync failed:", err));
           }
-        } catch (err) {
-          console.error("Failed to load user profile:", err);
-          setProfile(null);
-          setHouseholdIdState(null);
-          setHouseholdId(null);
+
           setAuthLoading(false);
-        }
+        });
       } else {
         // Signed out — clear everything and unscope dataService
         setProfile(null);
         setHouseholdIdState(null);
         setHouseholdId(null);
         didSync.current = false;
+        setAuthLoading(false);
       }
-
-      setAuthLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsub();
+      if (profileUnsub) profileUnsub();
+    };
   }, []);
 
   return (
