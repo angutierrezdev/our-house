@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getFunctions } from "firebase/functions";
 
 // Firebase config is loaded from environment variables (.env).
 // Falls back to localStorage-only mode when API key is absent.
@@ -19,6 +18,5 @@ const isFirebaseConfigured = !!firebaseConfig.apiKey;
 export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 export const db = app ? getFirestore(app) : null;
 export const auth = app ? getAuth(app) : null;
-export const functions = app ? getFunctions(app) : null;
 
 export { isFirebaseConfigured };
