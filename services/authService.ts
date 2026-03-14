@@ -11,16 +11,14 @@ import {
   doc,
   getDoc,
   setDoc,
-  writeBatch,
   collection,
   getDocs,
+  writeBatch,
   query,
   where,
   onSnapshot,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { auth, db, functions } from "../firebase";
-import { getLocalPeople, getLocalChores } from "./localStorage";
+import { auth, db } from "../firebase";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -161,13 +159,13 @@ const migrateExistingDataToHousehold = async (
   const userSnap = await getDoc(doc(db, "users", uid));
   if (userSnap.data()?.migratedAt) return;
 
-  // Only run for users who have pre-existing local data. New users will have
-  // nothing in localStorage and should skip migration entirely.
-  const localPeople = getLocalPeople();
-  const localChores = getLocalChores();
+  const [peopleSnap, choresSnap] = await Promise.all([
+    getDocs(collection(db, "people")),
+    getDocs(collection(db, "chores")),
+  ]);
 
-  if (localPeople.length === 0 && localChores.length === 0) {
-    // No pre-existing data — mark done and skip
+  if (peopleSnap.empty && choresSnap.empty) {
+    // Nothing to migrate — just mark done
     await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
     return;
   }
@@ -176,11 +174,11 @@ const migrateExistingDataToHousehold = async (
   const BATCH_SIZE = 400;
   const ops: Array<{ path: string; id: string; data: Record<string, unknown> }> = [];
 
-  localPeople.forEach((p) =>
-    ops.push({ path: `households/${householdId}/people`, id: p.id, data: p as unknown as Record<string, unknown> })
+  peopleSnap.forEach((d) =>
+    ops.push({ path: `households/${householdId}/people`, id: d.id, data: d.data() })
   );
-  localChores.forEach((c) =>
-    ops.push({ path: `households/${householdId}/chores`, id: c.id, data: c as unknown as Record<string, unknown> })
+  choresSnap.forEach((d) =>
+    ops.push({ path: `households/${householdId}/chores`, id: d.id, data: d.data() })
   );
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
@@ -194,44 +192,71 @@ const migrateExistingDataToHousehold = async (
   // Mark migration complete
   await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
   console.log(
-    `✅ Migrated ${localPeople.length} people + ${localChores.length} chores → households/${householdId}`
+    `✅ Migrated ${peopleSnap.size} people + ${choresSnap.size} chores → households/${householdId}`
   );
 };
 
 // ─── Household ────────────────────────────────────────────────────────────────
-// createHousehold and joinHousehold are implemented as Cloud Functions so that
-// role and householdId are written by trusted server-side code (Admin SDK) rather
-// than directly from the client.  The Firestore rules explicitly block client
-// writes to those fields.
 
 export const createHousehold = async (
   uid: string,
   name: string
 ): Promise<HouseholdInfo> => {
-  if (!functions) throw new Error("Firebase is not configured.");
+  if (!db) throw new Error("Firebase is not configured.");
 
-  const fn = httpsCallable<{ name: string }, HouseholdInfo>(functions, "createHousehold");
-  const result = await fn({ name });
+  const householdId = crypto.randomUUID();
+  const inviteCode = generateInviteCode();
+  const now = Date.now();
 
-  // Migrate any pre-existing flat Firestore data into the new household subcollections.
-  if (db) await migrateExistingDataToHousehold(uid, result.data.id);
+  const household: HouseholdInfo = {
+    id: householdId,
+    name,
+    inviteCode,
+    createdBy: uid,
+    createdAt: now,
+  };
 
-  return result.data;
+  // Write household doc and link user → household atomically so that the
+  // user is never left in an inconsistent admin state if either write fails.
+  const batch = writeBatch(db);
+  batch.set(doc(db, "households", householdId), household);
+  batch.set(doc(db, "users", uid), { uid, householdId, role: "admin" }, { merge: true });
+  await batch.commit();
+
+  // Run migration (existing flat Firestore data → scoped subcollections)
+  await migrateExistingDataToHousehold(uid, householdId);
+
+  return household;
 };
 
 export const joinHousehold = async (
   uid: string,
   inviteCode: string
 ): Promise<HouseholdInfo> => {
-  if (!functions) throw new Error("Firebase is not configured.");
+  if (!db) throw new Error("Firebase is not configured.");
 
-  const fn = httpsCallable<{ inviteCode: string }, HouseholdInfo>(functions, "joinHousehold");
-  const result = await fn({ inviteCode });
+  // Find household by invite code
+  const q = query(
+    collection(db, "households"),
+    where("inviteCode", "==", inviteCode.toUpperCase())
+  );
+  const householdsSnap = await getDocs(q);
+  const match = householdsSnap.docs[0];
 
-  // Migrate any pre-existing flat Firestore data into the joined household.
-  if (db) await migrateExistingDataToHousehold(uid, result.data.id);
+  if (!match) throw new Error("Invalid invite code. Please check and try again.");
 
-  return result.data;
+  const household = { id: match.id, ...match.data() } as HouseholdInfo;
+
+  // Link user → household (merge so it works even if the doc was never created)
+  await setDoc(doc(db, "users", uid), {
+    uid,
+    householdId: household.id,
+    role: "member",
+  }, { merge: true });
+
+  // Run migration for existing user data now that they have joined a household
+  await migrateExistingDataToHousehold(uid, household.id);
+  return household;
 };
 
 export const getHouseholdInfo = async (
