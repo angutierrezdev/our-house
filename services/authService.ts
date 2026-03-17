@@ -91,9 +91,11 @@ export const logOut = async (clearLocal = true): Promise<void> => {
   if (!auth) throw new Error("Firebase Auth is not configured.");
   await signOut(auth);
 
-  if (clearLocal && typeof localStorage !== "undefined") {
+  if (clearLocal) {
     try {
-      clearAllLocalData();
+      if (typeof localStorage !== "undefined") {
+        clearAllLocalData();
+      }
     } catch (err) {
       // Non-fatal — don't block logout if clearing localStorage fails.
       // Keep a console warning for diagnostics.
