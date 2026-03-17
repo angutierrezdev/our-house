@@ -3,6 +3,7 @@ export interface Person {
   name: string;
   color: string;
   avatar?: string;
+  updatedAt?: number; // timestamp — used for last-write-wins conflict resolution
 }
 
 export interface ChecklistItem {
@@ -50,6 +51,7 @@ export interface Chore {
   completedAt?: number; // timestamp
   dueDate?: number; // timestamp (optional)
   createdAt: number; // timestamp
+  updatedAt?: number; // timestamp — used for last-write-wins conflict resolution
   checklist?: ChecklistItem[];
 }
 
