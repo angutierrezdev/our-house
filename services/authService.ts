@@ -19,6 +19,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { clearAllLocalData } from "./localStorage";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,9 +87,20 @@ export const signIn = async (email: string, password: string): Promise<User> => 
   return user;
 };
 
-export const logOut = async (): Promise<void> => {
+export const logOut = async (clearLocal = true): Promise<void> => {
   if (!auth) throw new Error("Firebase Auth is not configured.");
   await signOut(auth);
+
+  if (clearLocal && typeof localStorage !== "undefined") {
+    try {
+      clearAllLocalData();
+    } catch (err) {
+      // Non-fatal — don't block logout if clearing localStorage fails.
+      // Keep a console warning for diagnostics.
+      // eslint-disable-next-line no-console
+      console.warn("Failed to clear localStorage during logout:", err);
+    }
+  }
 };
 
 export const signInWithGoogle = async (): Promise<User> => {

@@ -116,7 +116,7 @@ const Dashboard: React.FC = () => {
         {pendingChores.length > 0 && (
           <div className={`${completedChores.length > 0 ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col`}>
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Upcoming Tasks</h2>
             </div>
             <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
               {pendingChores.map((chore) => {
