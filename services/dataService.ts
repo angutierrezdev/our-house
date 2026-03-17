@@ -110,32 +110,88 @@ const sortChores = (chores: Chore[]): Chore[] => {
 };
 
 /**
- * Migrates local data to Firebase. Used when first connecting or syncing after offline.
+ * Merges local (localStorage) and remote (Firestore) data using last-write-wins
+ * per document based on the `updatedAt` timestamp.
+ *
+ * - Documents only in localStorage  → written to Firestore.
+ * - Documents only in Firestore      → saved to localStorage cache (already
+ *   handled by onSnapshot, but resolved here for the initial sync window).
+ * - Documents in both                → whichever has the higher `updatedAt`
+ *   wins; the loser is overwritten on both sides.
  */
 export const syncLocalDataToFirebase = async (targetDb: any) => {
-  if (!targetDb) return;
+  if (!targetDb || !_householdId) return;
 
-  const localPeople = getLocalPeople();
-  const localChores = getLocalChores();
+  const [remoteChoreSnap, remotePeopleSnap, localChores, localPeople] = await Promise.all([
+    getDocs(query(collection(targetDb, colPath('chores')))),
+    getDocs(query(collection(targetDb, colPath('people')))),
+    Promise.resolve(getLocalChores()),
+    Promise.resolve(getLocalPeople()),
+  ]);
 
-  // Use batch writes for efficiency (max 500 operations per batch)
+  // Build id→doc maps for O(1) lookup
+  const remoteChores = new Map(remoteChoreSnap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Chore]));
+  const remotePeople = new Map(remotePeopleSnap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Person]));
+  const localChoresMap = new Map(localChores.map(c => [c.id, c]));
+  const localPeopleMap = new Map(localPeople.map(p => [p.id, p]));
+
+  // Collect all unique ids from both sides
+  const allChoreIds = new Set([...remoteChores.keys(), ...localChoresMap.keys()]);
+  const allPeopleIds = new Set([...remotePeople.keys(), ...localPeopleMap.keys()]);
+
   const BATCH_SIZE = 500;
-  const allOperations = [
-    ...localPeople.map(person => ({ collection: colPath('people'), id: person.id, data: person })),
-    ...localChores.map(chore => ({ collection: colPath('chores'), id: chore.id, data: chore }))
-  ];
+  const toWriteFirestore: Array<{ col: string; id: string; data: object }> = [];
+  const mergedChores: Chore[] = [];
+  const mergedPeople: Person[] = [];
 
-  for (let i = 0; i < allOperations.length; i += BATCH_SIZE) {
+  for (const id of allChoreIds) {
+    const remote = remoteChores.get(id);
+    const local = localChoresMap.get(id);
+    if (remote && local) {
+      // Both sides have the doc — pick the one with the newer updatedAt.
+      const winner = (local.updatedAt ?? local.createdAt ?? 0) >= (remote.updatedAt ?? remote.createdAt ?? 0)
+        ? local : remote;
+      mergedChores.push(winner);
+      if (winner === local) toWriteFirestore.push({ col: colPath('chores'), id, data: local });
+    } else if (local && !remote) {
+      // Only local — push to Firestore.
+      mergedChores.push(local);
+      toWriteFirestore.push({ col: colPath('chores'), id, data: local });
+    } else if (remote && !local) {
+      // Only remote — keep it (onSnapshot will write to localStorage shortly).
+      mergedChores.push(remote);
+    }
+  }
+
+  for (const id of allPeopleIds) {
+    const remote = remotePeople.get(id);
+    const local = localPeopleMap.get(id);
+    if (remote && local) {
+      const winner = (local.updatedAt ?? 0) >= (remote.updatedAt ?? 0) ? local : remote;
+      mergedPeople.push(winner);
+      if (winner === local) toWriteFirestore.push({ col: colPath('people'), id, data: local });
+    } else if (local && !remote) {
+      mergedPeople.push(local);
+      toWriteFirestore.push({ col: colPath('people'), id, data: local });
+    } else if (remote && !local) {
+      mergedPeople.push(remote);
+    }
+  }
+
+  // Persist merged result to localStorage immediately so UI reflects it
+  saveLocalChores(sortChores(mergedChores));
+  saveLocalPeople(mergedPeople.sort((a, b) => a.name.localeCompare(b.name)));
+
+  // Batch-write winning local docs to Firestore
+  for (let i = 0; i < toWriteFirestore.length; i += BATCH_SIZE) {
     const batch = writeBatch(targetDb);
-    const batchOps = allOperations.slice(i, i + BATCH_SIZE);
-    
-    batchOps.forEach(op => {
-      const docRef = doc(targetDb, op.collection, op.id);
-      batch.set(docRef, op.data, { merge: true }); // Use merge to avoid overwriting server changes
+    toWriteFirestore.slice(i, i + BATCH_SIZE).forEach(op => {
+      batch.set(doc(targetDb, op.col, op.id), op.data);
     });
-
     await batch.commit();
   }
+
+  console.log(`✅ Sync complete — chores: ${mergedChores.length}, people: ${mergedPeople.length}, Firestore updates: ${toWriteFirestore.length}`);
 };
 
 // Initialize sync check when the module loads
@@ -178,7 +234,7 @@ export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubsc
 
 export const addPerson = async (person: Omit<Person, "id">) => {
   const id = generateId();
-  const newPerson = { ...person, id };
+  const newPerson = { ...person, id, updatedAt: Date.now() };
 
   // 1. Update Local
   const people = getLocalPeople();
@@ -258,7 +314,7 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
 
 export const addChore = async (chore: Omit<Chore, "id">) => {
   const id = generateId();
-  const newChore = { ...chore, id } as Chore;
+  const newChore = { ...chore, id, updatedAt: Date.now() } as Chore;
 
   // 1. Update Local
   const chores = getLocalChores();
@@ -279,9 +335,10 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
 };
 
 export const updateChore = async (id: string, updates: Partial<Chore>) => {
+  const stamped = { ...updates, updatedAt: Date.now() };
   // 1. Update Local
   const chores = getLocalChores();
-  const updated = chores.map(c => c.id === id ? { ...c, ...updates } : c);
+  const updated = chores.map(c => c.id === id ? { ...c, ...stamped } : c);
   saveLocalChores(sortChores(updated));
 
   // 2. Update Firebase
@@ -289,7 +346,7 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
     try {
       // Remove undefined values to prevent Firebase errors
       const cleanedUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined)
+        Object.entries(stamped).filter(([_, value]) => value !== undefined)
       );
       await updateDoc(doc(db, colPath("chores"), id), cleanedUpdates);
     } catch (error) {
