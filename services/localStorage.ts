@@ -70,12 +70,12 @@ export const clearDeletedPerson = (id: string) => {
 };
 
 /**
- * Clears user/session-specific keys from localStorage on logout.
+ * Session/user-specific keys cleared on logout.
  * Device-level preferences (e.g. choremaster_settings) are intentionally
  * excluded so that they persist across sessions.
  */
+const SESSION_KEYS = [CHORES_KEY, PEOPLE_KEY, DELETED_CHORES_KEY, DELETED_PEOPLE_KEY];
+
 export const clearAllLocalData = (): void => {
-  [CHORES_KEY, PEOPLE_KEY, DELETED_CHORES_KEY, DELETED_PEOPLE_KEY].forEach((k) =>
-    localStorage.removeItem(k)
-  );
+  SESSION_KEYS.forEach((k) => localStorage.removeItem(k));
 };
