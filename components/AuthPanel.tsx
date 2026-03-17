@@ -19,6 +19,7 @@ const AuthPanel: React.FC = () => {
       await signInWithGoogle();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      console.error("🔴 Google Sign-In Error:", msg, err);
       if (msg.includes("popup-closed")) return; // user dismissed — not an error
       setError("Google sign-in failed. Please try again.");
     } finally {
