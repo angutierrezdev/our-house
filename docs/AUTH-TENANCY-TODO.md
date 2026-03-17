@@ -54,23 +54,28 @@ App loads → show app immediately (localStorage)
 ## 2. Install Dependencies
 
 ```bash
-# Firebase Auth is already included in the firebase package — no new installs needed
+# Firebase Auth and Functions are already included in the firebase package — no new installs needed
 # Optionally add a hook library for convenience:
 npm install react-firebase-hooks
+
+# Install Cloud Functions dependencies (in the functions/ subdirectory):
+cd functions && npm install
 ```
 
 ---
 
-## 3. `firebase.ts` — Export `auth`
+## 3. `firebase.ts` — Export `auth` and `functions`
 
 **File:** [`firebase.ts`](firebase.ts)
 
-Add Auth export alongside the existing `db` export:
+Add Auth and Functions exports alongside the existing `db` export:
 
 ```ts
 import { getAuth } from "firebase/auth";
+import { getFunctions } from "firebase/functions";
 
 export const auth = app ? getAuth(app) : null;
+export const functions = app ? getFunctions(app) : null;
 ```
 
 ---
@@ -97,16 +102,23 @@ import {
   onAuthStateChanged,
   User
 } from "firebase/auth";
-import {
-  doc, setDoc, getDoc, collection, query, where, getDocs
-} from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../firebase";
 
 export interface UserProfile {
   uid: string;
   email: string;
   householdId: string | null;
   role: "admin" | "member";
+}
+
+export interface HouseholdInfo {
+  id: string;
+  name: string;
+  inviteCode: string;
+  createdBy: string;
+  createdAt: number;
 }
 
 /** Sign up a new user (does NOT create a household yet) */
@@ -126,6 +138,17 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   return snap.exists() ? (snap.data() as UserProfile) : null;
 };
 
+/**
+ * Create a brand new household.
+ *
+ * Delegates to the `createHousehold` Cloud Function so that `role` and
+ * `householdId` are written by trusted server-side code (Admin SDK).
+ * The Firestore rules block client-side writes to those fields.
+ */
+export const createHousehold = async (name: string): Promise<HouseholdInfo> => {
+  const fn = httpsCallable<{ name: string }, HouseholdInfo>(functions!, "createHousehold");
+  const result = await fn({ name });
+  return result.data;
 /** Create a brand new household; sets the caller as admin */
 const generateInviteCode = (length: number = 16): string => {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -159,30 +182,95 @@ export const createHousehold = async (uid: string, email: string, householdName:
   return householdId;
 };
 
-/** Join an existing household via invite code */
-export const joinHousehold = async (uid: string, email: string, inviteCode: string) => {
-  const q = query(
-    collection(db!, "households"),
-    where("inviteCode", "==", inviteCode.toUpperCase())
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) throw new Error("Invalid invite code");
-
-  const householdId = snap.docs[0].id;
-
-  await setDoc(doc(db!, "users", uid), {
-    uid,
-    email,
-    householdId,
-    role: "member"
-  });
-
-  return householdId;
+/**
+ * Join an existing household via invite code.
+ *
+ * Delegates to the `joinHousehold` Cloud Function so that `role` and
+ * `householdId` are written by trusted server-side code (Admin SDK).
+ */
+export const joinHousehold = async (inviteCode: string): Promise<HouseholdInfo> => {
+  const fn = httpsCallable<{ inviteCode: string }, HouseholdInfo>(functions!, "joinHousehold");
+  const result = await fn({ inviteCode });
+  return result.data;
 };
 
 /** Subscribe to auth state changes */
 export const subscribeToAuthState = (callback: (user: User | null) => void) =>
   onAuthStateChanged(auth!, callback);
+```
+
+---
+
+## 5a. New File: `functions/src/index.ts` — Cloud Functions for Household Management
+
+> **Why Cloud Functions?** The Firestore security rules block client writes to `role`
+> and `householdId` on `/users/{uid}`. Household creation and joining must therefore
+> happen on the server, where the Firebase Admin SDK bypasses those rules and the caller
+> identity (`request.auth.uid`) can be trusted absolutely.
+
+Create [`functions/src/index.ts`](../functions/src/index.ts):
+
+```ts
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
+
+admin.initializeApp();
+const db = admin.firestore();
+
+/** Creates a household and sets the caller as admin. */
+export const createHousehold = functions.https.onCall(async (request) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+  }
+  const { name } = request.data as { name: string };
+  const uid = request.auth.uid;
+  const householdId = db.collection("households").doc().id;
+  const inviteCode = /* generate 6-char alphanumeric code */ "...";
+
+  const household = { id: householdId, name, inviteCode, createdBy: uid, createdAt: Date.now() };
+
+  const batch = db.batch();
+  batch.set(db.collection("households").doc(householdId), household);
+  // Admin SDK write — bypasses Firestore rules, so role/householdId can be set safely.
+  batch.set(db.collection("users").doc(uid), { uid, householdId, role: "admin" }, { merge: true });
+  await batch.commit();
+
+  return household;
+});
+
+/** Joins a household by invite code and sets the caller as member. */
+export const joinHousehold = functions.https.onCall(async (request) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be signed in.");
+  }
+  const { inviteCode } = request.data as { inviteCode: string };
+  const uid = request.auth.uid;
+
+  const snap = await db.collection("households")
+    .where("inviteCode", "==", inviteCode.trim().toUpperCase())
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    throw new functions.https.HttpsError("not-found", "Invalid invite code.");
+  }
+
+  const householdDoc = snap.docs[0];
+  const household = { id: householdDoc.id, ...householdDoc.data() };
+
+  // Admin SDK write — role is always "member" regardless of what the client sends.
+  await db.collection("users").doc(uid)
+    .set({ uid, householdId: household.id, role: "member" }, { merge: true });
+
+  return household;
+});
+```
+
+Deploy with:
+
+```bash
+cd functions && npm install
+firebase deploy --only functions
 ```
 
 ---
@@ -481,7 +569,14 @@ The existing Firebase config form (`apiKey`, `projectId`, etc.) **stays unchange
 
 ## 11. Firestore Security Rules
 
-Replace current rules in the Firebase Console with:
+> **Security note:** The `/users/{uid}` rules deliberately block client writes to `role`
+> and `householdId`. Those fields are managed exclusively by the `createHousehold` and
+> `joinHousehold` Cloud Functions (Admin SDK), which bypass Firestore rules entirely.
+> This prevents a malicious client from self-elevating to `admin` or pointing their
+> `householdId` at an arbitrary household.
+
+The rules below live in [`firestore.rules`](../firestore.rules) and are deployed via
+`firebase deploy --only firestore:rules` (or automatically when you run `firebase deploy`).
 
 ```js
 rules_version = '2';
@@ -494,7 +589,22 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Users can read their own profile.
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Initial profile creation (sign-up / Google sign-in):
+      // only allowed with role='member' and householdId=null.
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.role == 'member'
+                    && request.resource.data.householdId == null;
+
+      // Client-side updates may not touch role or householdId.
+      // Household assignment and role changes go through Cloud Functions only.
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && !request.resource.data.diff(resource.data)
+                        .affectedKeys().hasAny(['role', 'householdId']);
     }
 
     match /households/{householdId} {
@@ -535,11 +645,15 @@ service cloud.firestore {
     }
 
     function isValidPerson(data) {
-      // paste existing isValidPerson body here unchanged
+      return data.keys().hasAll(['id', 'name'])
+          && data.id is string
+          && data.name is string;
     }
 
     function isValidChore(data) {
-      // paste existing isValidChore body here unchanged
+      return data.keys().hasAll(['id', 'title'])
+          && data.id is string
+          && data.title is string;
     }
   }
 }
@@ -615,8 +729,13 @@ If there is already live data in the flat `/people` and `/chores` collections:
 
 | File | Type | Change |
 |------|------|--------|
-| [`firebase.ts`](../firebase.ts) | Edit | Export `auth` |
-| [`services/authService.ts`](../services/authService.ts) | **New** | All auth + household CRUD |
+| [`firebase.ts`](../firebase.ts) | Edit | Export `auth` and `functions` |
+| [`services/authService.ts`](../services/authService.ts) | **New** | All auth + household CRUD; `createHousehold`/`joinHousehold` delegate to Cloud Functions |
+| [`functions/src/index.ts`](../functions/src/index.ts) | **New** | `createHousehold` and `joinHousehold` Cloud Functions (Admin SDK writes for role/householdId) |
+| [`functions/package.json`](../functions/package.json) | **New** | Cloud Functions dependencies (`firebase-admin`, `firebase-functions`) |
+| [`functions/tsconfig.json`](../functions/tsconfig.json) | **New** | TypeScript config for Cloud Functions |
+| [`firestore.rules`](../firestore.rules) | **New** | Tightened rules: `/users/{uid}` blocks client writes to `role` and `householdId` |
+| [`firebase.json`](../firebase.json) | **New** | Firebase project config pointing to `functions/` and `firestore.rules` |
 | [`contexts/AuthContext.tsx`](../contexts/AuthContext.tsx) | **New** | Auth state provider + `useAuth()` hook; triggers sync on household resolve |
 | [`components/AuthPanel.tsx`](../components/AuthPanel.tsx) | **New** | Inline sign-in/sign-up form (used inside Settings) |
 | [`components/HouseholdSetupSheet.tsx`](../components/HouseholdSetupSheet.tsx) | **New** | Create or join a household (used inside Settings) |
