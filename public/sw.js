@@ -99,7 +99,7 @@ self.addEventListener('fetch', event => {
           const response = await fetch(request);
           if (response.ok) {
             const cache = await caches.open(RUNTIME_CACHE);
-            cache.put(request, response.clone());
+            await cache.put(request, response.clone());
           }
           return response;
         } catch (error) {
@@ -113,10 +113,14 @@ self.addEventListener('fetch', event => {
 
       // Stale-while-revalidate for HTML and app resources
       const cached = await caches.match(request);
-      const fetchPromise = fetch(request).then(response => {
+      const fetchPromise = fetch(request).then(async response => {
         if (response.ok) {
-          const cache = caches.open(RUNTIME_CACHE);
-          cache.then(c => c.put(request, response.clone()));
+          try {
+            const cache = await caches.open(RUNTIME_CACHE);
+            await cache.put(request, response.clone());
+          } catch (e) {
+            // Silently fail cache operations to avoid blocking response
+          }
         }
         return response;
       }).catch(() => null);

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import PWAUpdate from './components/PWAUpdate';
 import SplashScreen from './components/SplashScreen';
@@ -13,7 +14,7 @@ const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   return (
-    <>
+    <AuthProvider>
       <SplashScreen onComplete={() => setShowSplash(false)} />
       <PWAUpdate />
       <HashRouter>
@@ -27,7 +28,7 @@ const App: React.FC = () => {
         </Route>
       </Routes>
       </HashRouter>
-    </>
+    </AuthProvider>
   );
 };
 

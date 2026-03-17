@@ -1,0 +1,58 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#3b82f6', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2563eb', 'lineColor': '#94a3b8', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#fff' }}}%%
+flowchart TD
+    A([🚀 App Loads]) --> B{Firebase\nConfigured?}
+
+    B -- ❌ No --> Z([📱 Local-Only Mode\nGo straight to app])
+
+    B -- ✅ Yes --> C[💫 Checking auth state…]
+    C --> D{Authenticated?}
+
+    D -- ❌ No --> E[🔐 Login Page]
+    E --> F{Action}
+    F -- Sign In --> G{Valid\ncredentials?}
+    F -- Create Account --> G
+    G -- ❌ Invalid --> H[⚠️ Error Banner]
+    H --> E
+    G -- ✅ Success --> I{Has\nhouseholdId?}
+
+    D -- ✅ Already logged in --> I
+
+    I -- ❌ No household yet --> J[🏠 Household Setup]
+    J --> K{Action}
+    K -- Create Household\nenter name --> L[💾 Creates doc in Firestore\nRole: Admin]
+    K -- Join with\nInvite Code --> M[🔑 Looks up code in Firestore\nRole: Member]
+    L --> N
+    M --> N
+
+    I -- ✅ Has household --> N
+
+    Z --> N([🏡 Dashboard])
+
+    N <--> O[📋 Kanban Board]
+    N <--> P[👥 People Manager]
+    N <--> Q[⚙️ Settings]
+
+    Q --> R[🚪 Sign Out]
+    R --> E
+
+    subgraph DATA ["Firestore structure after login"]
+        direction LR
+        DS1["/users/{uid}\n  householdId\n  role: admin|member"]
+        DS2["/households/{hid}\n  name\n  inviteCode\n  createdBy"]
+        DS3["/households/{hid}/people/{id}"]
+        DS4["/households/{hid}/chores/{id}"]
+    end
+
+    N -.->|reads/writes| DATA
+
+    style A fill:#10b981,color:#fff,stroke:none
+    style N fill:#3b82f6,color:#fff,stroke:none
+    style Z fill:#3b82f6,color:#fff,stroke:none
+    style E fill:#f59e0b,color:#fff,stroke:none
+    style J fill:#8b5cf6,color:#fff,stroke:none
+    style H fill:#ef4444,color:#fff,stroke:none
+    style R fill:#ef4444,color:#fff,stroke:none
+    style C fill:#e2e8f0,color:#374151,stroke:#cbd5e0
+    style L fill:#dcfce7,color:#166534,stroke:#86efac
+    style M fill:#dcfce7,color:#166534,stroke:#86efac
+    style DATA fill:#f8fafc,color:#374151,stroke:#e2e8f0
