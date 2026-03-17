@@ -34,7 +34,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --verbose
-        continue-on-error: true
 
       - name: Install dependencies (retry with clean slate)
         if: failure()
