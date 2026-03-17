@@ -68,3 +68,17 @@ export const clearDeletedPerson = (id: string) => {
   map.delete(id);
   writeDeletedMap(DELETED_PEOPLE_KEY, map);
 };
+
+/**
+ * Clears all application-local keys from localStorage.
+ * Removes any keys that use the `choremaster_` prefix.
+ */
+export const clearAllLocalData = (): void => {
+  const prefix = "choremaster_";
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) keysToRemove.push(key);
+  }
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
+};

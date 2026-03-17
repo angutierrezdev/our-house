@@ -114,11 +114,11 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Upcoming Tasks</h2>
           </div>
           <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
             {pendingChores.length === 0 ? (
-               <div className="p-8 text-center text-gray-400">No active chores. You're all caught up!</div>
+               <div className="p-8 text-center text-gray-400">No active tasks. You're all caught up!</div>
             ) : (
               pendingChores.map((chore) => {
                 const assignee = getAssignee(chore.assigneeId);
