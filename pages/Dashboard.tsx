@@ -73,8 +73,9 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="flex flex-col space-y-6">
+      {/* Stats Cards - Moved below chores on mobile */}
+      <div className="order-2 md:order-1 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between md:justify-start">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
@@ -109,7 +110,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="order-1 md:order-2 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
@@ -257,6 +258,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
 
       <ChoreModal 
         isOpen={isModalOpen} 
