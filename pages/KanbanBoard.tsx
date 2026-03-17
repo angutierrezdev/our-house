@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, updateChore } from "../services/dataService";
+import { useAuth } from "../contexts/AuthContext";
 import { Calendar, User, ArrowRight, Check, Zap, ListChecks } from "lucide-react";
 import ChoreModal from "../components/ChoreModal";
 import { PRIORITY_CONFIG } from "../constants";
@@ -11,6 +12,7 @@ const KanbanBoard: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChore, setEditingChore] = useState<Chore | undefined>(undefined);
+  const { householdId } = useAuth();
   
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -21,7 +23,7 @@ const KanbanBoard: React.FC = () => {
       unsubChores();
       unsubPeople();
     };
-  }, []);
+  }, [householdId]);
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -167,7 +169,8 @@ const KanbanBoard: React.FC = () => {
                         const progressPercent = checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0;
 
                         return (
-                          <Draggable key={chore.id} draggableId={chore.id} index={index}>
+                          <React.Fragment key={chore.id}>
+                          <Draggable draggableId={chore.id} index={index}>
                             {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
@@ -247,6 +250,7 @@ const KanbanBoard: React.FC = () => {
                               </div>
                             )}
                           </Draggable>
+                          </React.Fragment>
                         );
                       })}
                     {provided.placeholder}

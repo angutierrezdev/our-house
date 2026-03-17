@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Person, Chore, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { subscribeToChores, subscribeToPeople, completeChore, deleteChore } from "../services/dataService";
+import { useAuth } from "../contexts/AuthContext";
 import { CheckCircle2, Clock, Trash2, Plus, Calendar, Zap, ListChecks } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
 import ChoreModal from "../components/ChoreModal";
@@ -11,6 +12,7 @@ const Dashboard: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChore, setEditingChore] = useState<Chore | undefined>(undefined);
+  const { householdId } = useAuth();
 
   useEffect(() => {
     const unsubChores = subscribeToChores(setChores);
@@ -19,7 +21,7 @@ const Dashboard: React.FC = () => {
       unsubChores();
       unsubPeople();
     };
-  }, []);
+  }, [householdId]);
 
   const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING || c.status === ChoreStatus.IN_PROGRESS);
   const completedChores = chores.filter((c) => c.status === ChoreStatus.COMPLETED);
