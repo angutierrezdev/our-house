@@ -10,7 +10,11 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "../firebase";
-import { getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople } from "./localStorage";
+import {
+  getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople,
+  getDeletedChoreIds, recordDeletedChore, clearDeletedChore,
+  getDeletedPeopleIds, recordDeletedPerson, clearDeletedPerson,
+} from "./localStorage";
 import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addWeeks, addMonths, addDays, addYears } from "date-fns";
 import { PRIORITY_WEIGHTS } from "../constants";
@@ -130,8 +134,9 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
   ]);
 
   // Build id→doc maps for O(1) lookup
-  const remoteChores = new Map(remoteChoreSnap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Chore]));
-  const remotePeople = new Map(remotePeopleSnap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Person]));
+  // Spread data first so the snapshot id (d.id) is always authoritative.
+  const remoteChores = new Map(remoteChoreSnap.docs.map(d => [d.id, { ...d.data(), id: d.id } as Chore]));
+  const remotePeople = new Map(remotePeopleSnap.docs.map(d => [d.id, { ...d.data(), id: d.id } as Person]));
   const localChoresMap = new Map(localChores.map(c => [c.id, c]));
   const localPeopleMap = new Map(localPeople.map(p => [p.id, p]));
 
@@ -141,25 +146,46 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
 
   const BATCH_SIZE = 500;
   const toWriteFirestore: Array<{ col: string; id: string; data: object }> = [];
+  const toDeleteFirestore: Array<{ col: string; id: string }> = [];
   const mergedChores: Chore[] = [];
   const mergedPeople: Person[] = [];
+
+  const deletedChoreIds = getDeletedChoreIds();
+  const deletedPeopleIds = getDeletedPeopleIds();
+  const now = Date.now();
 
   for (const id of allChoreIds) {
     const remote = remoteChores.get(id);
     const local = localChoresMap.get(id);
     if (remote && local) {
       // Both sides have the doc — pick the one with the newer updatedAt.
-      const winner = (local.updatedAt ?? local.createdAt ?? 0) >= (remote.updatedAt ?? remote.createdAt ?? 0)
-        ? local : remote;
-      mergedChores.push(winner);
-      if (winner === local) toWriteFirestore.push({ col: colPath('chores'), id, data: local });
+      const localTs = local.updatedAt ?? local.createdAt ?? 0;
+      const remoteTs = remote.updatedAt ?? remote.createdAt ?? 0;
+      const winner = localTs >= remoteTs ? local : remote;
+      // Stamp updatedAt if missing so future merges have a stable ordering.
+      const stamped = winner.updatedAt ? winner : { ...winner, updatedAt: now };
+      mergedChores.push(stamped);
+      if (winner === local) {
+        toWriteFirestore.push({ col: colPath('chores'), id, data: stamped });
+      }
+      // Doc exists on both sides — it is no longer deleted; clear any stale tombstone.
+      clearDeletedChore(id);
     } else if (local && !remote) {
       // Only local — push to Firestore.
       mergedChores.push(local);
       toWriteFirestore.push({ col: colPath('chores'), id, data: local });
     } else if (remote && !local) {
-      // Only remote — keep it (onSnapshot will write to localStorage shortly).
-      mergedChores.push(remote);
+      const deletedAt = deletedChoreIds.get(id);
+      const remoteTs = remote.updatedAt ?? remote.createdAt ?? 0;
+      if (deletedAt !== undefined && deletedAt > remoteTs) {
+        // Local deletion is newer than remote — propagate delete to Firestore.
+        toDeleteFirestore.push({ col: colPath('chores'), id });
+        clearDeletedChore(id);
+      } else {
+        // Remote was never on this device (or remote is newer) — keep it.
+        if (deletedAt !== undefined) clearDeletedChore(id); // remote wins; clear stale tombstone
+        mergedChores.push(remote);
+      }
     }
   }
 
@@ -167,14 +193,32 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
     const remote = remotePeople.get(id);
     const local = localPeopleMap.get(id);
     if (remote && local) {
-      const winner = (local.updatedAt ?? 0) >= (remote.updatedAt ?? 0) ? local : remote;
-      mergedPeople.push(winner);
-      if (winner === local) toWriteFirestore.push({ col: colPath('people'), id, data: local });
+      const localTs = local.updatedAt ?? 0;
+      const remoteTs = remote.updatedAt ?? 0;
+      const winner = localTs >= remoteTs ? local : remote;
+      // Stamp updatedAt if missing so future merges have a stable ordering.
+      const stamped = winner.updatedAt ? winner : { ...winner, updatedAt: now };
+      mergedPeople.push(stamped);
+      if (winner === local) {
+        toWriteFirestore.push({ col: colPath('people'), id, data: stamped });
+      }
+      // Doc exists on both sides — clear any stale tombstone.
+      clearDeletedPerson(id);
     } else if (local && !remote) {
       mergedPeople.push(local);
       toWriteFirestore.push({ col: colPath('people'), id, data: local });
     } else if (remote && !local) {
-      mergedPeople.push(remote);
+      const deletedAt = deletedPeopleIds.get(id);
+      const remoteTs = remote.updatedAt ?? 0;
+      if (deletedAt !== undefined && deletedAt > remoteTs) {
+        // Local deletion is newer — propagate delete to Firestore.
+        toDeleteFirestore.push({ col: colPath('people'), id });
+        clearDeletedPerson(id);
+      } else {
+        // Remote was never on this device (or remote is newer) — keep it.
+        if (deletedAt !== undefined) clearDeletedPerson(id);
+        mergedPeople.push(remote);
+      }
     }
   }
 
@@ -182,16 +226,19 @@ export const syncLocalDataToFirebase = async (targetDb: any) => {
   saveLocalChores(sortChores(mergedChores));
   saveLocalPeople(mergedPeople.sort((a, b) => a.name.localeCompare(b.name)));
 
-  // Batch-write winning local docs to Firestore
+  // Batch-write winning local docs and propagate offline deletes to Firestore
   for (let i = 0; i < toWriteFirestore.length; i += BATCH_SIZE) {
     const batch = writeBatch(targetDb);
-    toWriteFirestore.slice(i, i + BATCH_SIZE).forEach(op => {
-      batch.set(doc(targetDb, op.col, op.id), op.data);
-    });
+    toWriteFirestore.slice(i, i + BATCH_SIZE).forEach(op => batch.set(doc(targetDb, op.col, op.id), op.data));
+    await batch.commit();
+  }
+  for (let i = 0; i < toDeleteFirestore.length; i += BATCH_SIZE) {
+    const batch = writeBatch(targetDb);
+    toDeleteFirestore.slice(i, i + BATCH_SIZE).forEach(op => batch.delete(doc(targetDb, op.col, op.id)));
     await batch.commit();
   }
 
-  console.log(`✅ Sync complete — chores: ${mergedChores.length}, people: ${mergedPeople.length}, Firestore updates: ${toWriteFirestore.length}`);
+  console.log(`✅ Sync complete — chores: ${mergedChores.length}, people: ${mergedPeople.length}, Firestore writes: ${toWriteFirestore.length}, Firestore deletes: ${toDeleteFirestore.length}`);
 };
 
 // Initialize sync check when the module loads
@@ -255,14 +302,18 @@ export const addPerson = async (person: Omit<Person, "id">) => {
 };
 
 export const deletePerson = async (id: string) => {
+  const deletedAt = Date.now();
   // 1. Update Local
   const people = getLocalPeople();
   saveLocalPeople(people.filter(p => p.id !== id));
+  recordDeletedPerson(id, deletedAt);
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
       await deleteDoc(doc(db, colPath("people"), id));
+      // Deletion reached Firestore — tombstone no longer needed.
+      clearDeletedPerson(id);
     } catch (error) {
       console.warn('⚠️ Failed to sync person deletion to Firebase (offline?), will retry when online:', error);
       // Data is already removed from localStorage, will sync when online
@@ -360,14 +411,18 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
 };
 
 export const deleteChore = async (id: string) => {
+  const deletedAt = Date.now();
   // 1. Update Local
   const chores = getLocalChores();
   saveLocalChores(chores.filter(c => c.id !== id));
+  recordDeletedChore(id, deletedAt);
 
   // 2. Update Firebase
   if (isFirebaseConfigured && db) {
     try {
       await deleteDoc(doc(db, colPath("chores"), id));
+      // Deletion reached Firestore — tombstone no longer needed.
+      clearDeletedChore(id);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore deletion to Firebase (offline?), will retry when online:', error);
       // Data is already removed from localStorage, will sync when online
