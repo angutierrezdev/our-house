@@ -70,15 +70,12 @@ export const clearDeletedPerson = (id: string) => {
 };
 
 /**
- * Clears all application-local keys from localStorage.
- * Removes any keys that use the `choremaster_` prefix.
+ * Clears user/session-specific keys from localStorage on logout.
+ * Device-level preferences (e.g. choremaster_settings) are intentionally
+ * excluded so that they persist across sessions.
  */
 export const clearAllLocalData = (): void => {
-  const prefix = "choremaster_";
-  const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith(prefix)) keysToRemove.push(key);
-  }
-  keysToRemove.forEach((k) => localStorage.removeItem(k));
+  [CHORES_KEY, PEOPLE_KEY, DELETED_CHORES_KEY, DELETED_PEOPLE_KEY].forEach((k) =>
+    localStorage.removeItem(k)
+  );
 };
