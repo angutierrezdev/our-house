@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { Person } from "../types";
 import { subscribeToPeople, addPerson, deletePerson } from "../services/dataService";
 import { COLORS } from "../constants";
@@ -8,11 +9,12 @@ const PeopleManager: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [newName, setNewName] = useState("");
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const { householdId } = useAuth();
 
   useEffect(() => {
     const unsub = subscribeToPeople(setPeople);
     return () => unsub();
-  }, []);
+  }, [householdId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -58,7 +58,7 @@ let isOnline = navigator.onLine;
 let pendingSync = false;
 
 const checkAndSync = async () => {
-  if (isFirebaseConfigured && db && isOnline && !pendingSync) {
+  if (isFirebaseConfigured && db && isOnline && !pendingSync && _householdId) {
     pendingSync = true;
     try {
       await syncLocalDataToFirebase(db);
@@ -151,7 +151,7 @@ export const subscribeToPeople = (callback: (people: Person[]) => void): Unsubsc
   const initialData = getLocalPeople();
   callback(initialData);
 
-  if (isFirebaseConfigured && db) {
+  if (isFirebaseConfigured && db && _householdId) {
     const q = query(collection(db, colPath("people")));
     return onSnapshot(q, (snapshot) => {
       const people = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Person));
@@ -224,7 +224,7 @@ export const subscribeToChores = (callback: (chores: Chore[]) => void): Unsubscr
   const initialData = getLocalChores();
   callback(sortChores(initialData));
 
-  if (isFirebaseConfigured && db) {
+  if (isFirebaseConfigured && db && _householdId) {
     const q = query(collection(db, colPath("chores")));
     return onSnapshot(q, (snapshot) => {
       const chores = snapshot.docs.map(doc => {
