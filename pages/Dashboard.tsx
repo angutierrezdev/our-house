@@ -110,16 +110,14 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="order-1 md:order-2 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
-          </div>
-          <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
-            {pendingChores.length === 0 ? (
-               <div className="p-8 text-center text-gray-400">No active chores. You're all caught up!</div>
-            ) : (
-              pendingChores.map((chore) => {
+      <div className="order-1 md:order-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {pendingChores.length > 0 && (
+          <div className={`${completedChores.length > 0 ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col`}>
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800">Upcoming Chores</h2>
+            </div>
+            <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
+              {pendingChores.map((chore) => {
                 const assignee = getAssignee(chore.assigneeId);
                 const priorityConfig = PRIORITY_CONFIG[chore.priority] || PRIORITY_CONFIG[ChorePriority.SOON];
                 
@@ -213,51 +211,54 @@ const Dashboard: React.FC = () => {
                     </button>
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6">Completion Stats</h2>
-          <div className="h-64 flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={chartData} 
-                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis 
-                  dataKey="name" 
-                  tick={{fontSize: 11, fill: '#6b7280'}} 
-                  axisLine={false}
-                  tickLine={false}
-                  dy={10}
-                />
-                <YAxis 
-                  allowDecimals={false} 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{fontSize: 11, fill: '#9ca3af'}}
-                />
-                <Tooltip 
-                  cursor={{fill: '#f9fafb'}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-                <Bar 
-                  dataKey="completed" 
-                  radius={[6, 6, 0, 0]} 
-                  barSize={32}
+        {completedChores.length > 0 && (
+          <div className={`${pendingChores.length > 0 ? 'md:col-span-2 lg:col-span-1' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col`}>
+            <h2 className="text-lg font-semibold text-gray-800 mb-6">Completion Stats</h2>
+            <div className="h-64 flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={chartData} 
+                  margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
                 >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{fontSize: 11, fill: '#6b7280'}} 
+                    axisLine={false}
+                    tickLine={false}
+                    dy={10}
+                  />
+                  <YAxis 
+                    allowDecimals={false} 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{fontSize: 11, fill: '#9ca3af'}}
+                  />
+                  <Tooltip 
+                    cursor={{fill: '#f9fafb'}}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="completed" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={32}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
 
 
       <ChoreModal 

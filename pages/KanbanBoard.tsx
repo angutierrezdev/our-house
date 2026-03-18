@@ -140,7 +140,7 @@ const KanbanBoard: React.FC = () => {
             <div 
               key={col.id}
               ref={(el) => { columnRefs.current[col.id] = el; }}
-              className={`flex-shrink-0 w-[85vw] md:w-[320px] md:flex-1 flex flex-col rounded-xl ${col.bg} p-3 md:p-4 snap-center h-full`}
+              className={`flex-shrink-0 w-[85vw] md:w-[300px] lg:flex-1 flex flex-col rounded-xl ${col.bg} p-3 md:p-4 snap-center h-full`}
             >
               <div className={`bg-white p-3 rounded-lg shadow-sm mb-3 md:mb-4 ${col.header} flex justify-between items-center sticky top-0 z-10`}>
                 <h2 className="font-semibold text-gray-800">{col.title}</h2>

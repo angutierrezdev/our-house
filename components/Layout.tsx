@@ -22,7 +22,7 @@ const Layout: React.FC = () => {
           : "text-gray-500 hover:text-gray-900"
       }`;
     }
-    return `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+    return `flex items-center justify-center lg:justify-start gap-3 px-3 lg:px-4 py-3 rounded-lg transition-colors ${
       isActive
         ? "bg-blue-100 text-blue-700 font-medium"
         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -41,35 +41,38 @@ const Layout: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-4 pb-24 md:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen order-1 md:order-2">
+      <main className="flex-1 md:ml-20 lg:ml-64 p-4 pb-24 md:p-6 lg:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen order-1 md:order-2">
         <div className="max-w-6xl mx-auto h-full">
           <Outlet />
         </div>
       </main>
 
-      {/* Desktop Sidebar - Now also visible at bottom on mobile as a footer menu */}
-      <aside className="flex w-full md:w-64 bg-white border-t md:border-t-0 md:border-r border-gray-200 flex-col md:fixed md:inset-y-0 md:left-0 z-20 order-2 md:order-1">
-        <div className="p-6 hidden md:flex items-center gap-2 border-b border-gray-100">
+      {/* Sidebar - Slim on md, Full on lg */}
+      <aside className="flex w-full md:w-20 lg:w-64 bg-white border-t md:border-t-0 md:border-r border-gray-200 flex-col md:fixed md:inset-y-0 md:left-0 z-20 order-2 md:order-1 transition-all duration-300">
+        <div className="p-6 hidden lg:flex items-center gap-2 border-b border-gray-100">
           <CheckCircle2 className="w-8 h-8 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">{APP_NAME}</h1>
+          <h1 className="text-xl font-bold text-gray-900 truncate">{APP_NAME}</h1>
+        </div>
+        <div className="p-4 hidden md:flex lg:hidden items-center justify-center border-b border-gray-100">
+          <CheckCircle2 className="w-8 h-8 text-blue-600" />
         </div>
 
-        <nav className="p-4 space-y-1 flex-1">
-          <div className="md:hidden mb-4">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">Menu</h2>
+        <nav className="p-2 lg:p-4 space-y-1 flex-1">
+          <div className="md:hidden lg:block mb-4">
+            <h2 className="text-[10px] lg:text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">Menu</h2>
           </div>
           {navLinks.map((link) => (
-            <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, false)}>
-              <link.icon className="w-5 h-5" />
-              {link.label}
+            <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, false)} title={link.label}>
+              <link.icon className="w-5 h-5 flex-shrink-0" />
+              <span className="hidden lg:block truncate">{link.label}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="p-4 mt-auto border-t border-gray-100 md:border-0">
-          <div className={`text-xs px-3 py-2 rounded-md flex items-center gap-2 ${isFirebaseConfigured ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-            <div className={`w-2 h-2 rounded-full ${isFirebaseConfigured ? "bg-green-500" : "bg-yellow-500"}`} />
-            {isFirebaseConfigured ? "Online" : "Offline"}
+          <div className={`text-xs px-3 py-2 rounded-md flex items-center justify-center lg:justify-start gap-2 ${isFirebaseConfigured ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isFirebaseConfigured ? "bg-green-500" : "bg-yellow-500"}`} />
+            <span className="hidden lg:block">{isFirebaseConfigured ? "Online" : "Offline"}</span>
           </div>
         </div>
       </aside>
