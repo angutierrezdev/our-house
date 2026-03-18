@@ -12,6 +12,8 @@ const PeopleManager: React.FC = () => {
   const { householdId } = useAuth();
 
   useEffect(() => {
+    if (!householdId) return; // Don't subscribe until household is set
+
     const unsub = subscribeToPeople(setPeople);
     return () => unsub();
   }, [householdId]);

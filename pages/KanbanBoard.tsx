@@ -17,6 +17,8 @@ const KanbanBoard: React.FC = () => {
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
+    if (!householdId) return; // Don't subscribe until household is set
+
     const unsubChores = subscribeToChores(setChores);
     const unsubPeople = subscribeToPeople(setPeople);
     return () => {

@@ -47,13 +47,6 @@ const Layout: React.FC = () => {
         <div className={`w-3 h-3 rounded-full ${isFirebaseConfigured ? "bg-green-500" : "bg-yellow-500"}`} title={isFirebaseConfigured ? "Online" : "Offline"} />
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 md:ml-20 lg:ml-64 p-4 pb-24 md:p-6 lg:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen order-1 md:order-2">
-        <div className="max-w-6xl mx-auto h-full">
-          <Outlet />
-        </div>
-      </main>
-
       {/* Sidebar - Slim on md, Full on lg */}
       <aside className="flex w-full md:w-20 lg:w-64 bg-white border-t md:border-t-0 md:border-r border-gray-200 flex-col md:fixed md:inset-y-0 md:left-0 z-20 order-2 md:order-1 transition-all duration-300">
         <div className="p-6 hidden lg:flex items-center gap-2 border-b border-gray-100">
