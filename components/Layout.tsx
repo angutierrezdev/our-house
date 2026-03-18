@@ -86,7 +86,7 @@ const Layout: React.FC = () => {
       </aside>
 
       {/* Right column: nudge + content */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 md:ml-16 flex flex-col min-h-screen">
         {/* Sync nudge banner */}
         {showSyncNudge && (
           <div className="bg-blue-50 border-b border-blue-100 text-blue-700 text-xs py-1.5 px-4 flex items-center justify-center gap-1.5">
@@ -97,7 +97,7 @@ const Layout: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-4 pb-24 md:p-8 overflow-x-hidden">
+        <main className="flex-1 md:ml-4 lg:ml-48 p-4 pb-24 md:p-6 lg:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen order-1 md:order-2">
           <div className="max-w-6xl mx-auto h-full">
             <Outlet />
           </div>
