@@ -48,7 +48,7 @@ const Layout: React.FC = () => {
       </header>
 
       {/* Sidebar - Slim on md, Full on lg */}
-      <aside className="flex w-full md:w-20 lg:w-64 bg-white border-t md:border-t-0 md:border-r border-gray-200 flex-col md:fixed md:inset-y-0 md:left-0 z-20 order-2 md:order-1 transition-all duration-300">
+      <aside className="hidden md:flex md:w-20 lg:w-64 bg-white border-t md:border-t-0 md:border-r border-gray-200 flex-col md:fixed md:inset-y-0 md:left-0 z-20 order-2 md:order-1 transition-all duration-300">
         <div className="p-6 hidden lg:flex items-center gap-2 border-b border-gray-100">
           <img 
             src="/our-house/icons/icon-192x192.png" 
@@ -67,7 +67,7 @@ const Layout: React.FC = () => {
 
         <nav className="p-2 lg:p-4 space-y-1 flex-1">
           <div className="md:hidden lg:block mb-4">
-            <h2 className="text-[10px] lg:text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">Menu</h2>
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">Menu</h2>
           </div>
           {navLinks.map((link) => (
             <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, false)} title={link.label}>
@@ -86,10 +86,10 @@ const Layout: React.FC = () => {
       </aside>
 
       {/* Right column: nudge + content */}
-      <div className="flex-1 md:ml-16 flex flex-col min-h-screen">
+      <div className="flex-1 md:ml-16 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
         {/* Sync nudge banner */}
         {showSyncNudge && (
-          <div className="bg-blue-50 border-b border-blue-100 text-blue-700 text-xs py-1.5 px-4 flex items-center justify-center gap-1.5">
+          <div className="bg-blue-50 border-b border-blue-100 text-blue-700 text-sm py-1.5 px-4 flex items-center justify-center gap-1.5">
             <Cloud className="w-3 h-3 flex-shrink-0" />
             <span>Sign in to sync across devices.</span>
             <NavLink to={ROUTES.SETTINGS} className="underline font-semibold">Set up in Settings</NavLink>
@@ -97,8 +97,8 @@ const Layout: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 md:ml-4 lg:ml-48 p-4 pb-24 md:p-6 lg:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen order-1 md:order-2">
-          <div className="max-w-6xl mx-auto h-full">
+        <main className="flex-1 md:ml-4 lg:ml-48 pb-24 md:p-6 lg:p-8 overflow-x-hidden min-h-[calc(100vh-4rem)] md:min-h-screen lg:min-h-0 lg:overflow-hidden lg:flex lg:flex-col order-1 md:order-2">
+          <div className="max-w-6xl mx-auto h-full lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
             <Outlet />
           </div>
         </main>
@@ -109,7 +109,7 @@ const Layout: React.FC = () => {
         {navLinks.map((link) => (
           <NavLink key={link.to} to={link.to} className={({ isActive }) => getNavLinkClass(isActive, true)}>
             <link.icon className={`w-6 h-6 ${location.pathname === link.to ? 'mb-1' : 'mb-0'}`} />
-            <span className="text-[10px] font-medium">{link.label}</span>
+            <span className="text-xs font-medium">{link.label}</span>
           </NavLink>
         ))}
       </nav>

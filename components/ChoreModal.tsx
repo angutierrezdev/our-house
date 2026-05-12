@@ -177,7 +177,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
           <form id="chore-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Title</label>
+                <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Title</label>
                 <input
                   type="text"
                   required
@@ -189,7 +189,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Description</label>
+                <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -200,7 +200,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
               </div>
 
               <div className="pt-2">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Checklist Items</label>
+                <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Checklist Items</label>
                 <div className="space-y-2 mb-3">
                   {checklist.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100 group">
@@ -245,7 +245,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Frequency</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Frequency</label>
                   <select
                     value={frequency}
                     onChange={(e) => setFrequency(e.target.value as ChoreFrequency)}
@@ -259,7 +259,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Priority</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Priority</label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as ChorePriority)}
@@ -275,7 +275,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Difficulty</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Difficulty</label>
                   <select
                     value={difficulty}
                     onChange={(e) => setDifficulty(e.target.value as ChoreDifficulty)}
@@ -287,7 +287,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Due Date</label>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Due Date</label>
                   <input
                     type="date"
                     value={dueDate}
@@ -298,7 +298,7 @@ const ChoreModal: React.FC<ChoreModalProps> = ({ isOpen, onClose, people, existi
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Assignee</label>
+                <label className="block text-sm font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Assignee</label>
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}

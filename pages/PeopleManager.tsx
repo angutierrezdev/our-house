@@ -9,14 +9,14 @@ const PeopleManager: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [newName, setNewName] = useState("");
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const { householdId } = useAuth();
+  const { householdId, authLoading } = useAuth();
 
   useEffect(() => {
-    if (!householdId) return; // Don't subscribe until household is set
+    if (authLoading) return; // Wait for Firebase auth to resolve
 
     const unsub = subscribeToPeople(setPeople);
     return () => unsub();
-  }, [householdId]);
+  }, [authLoading, householdId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

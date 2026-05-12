@@ -12,10 +12,10 @@ const Dashboard: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChore, setEditingChore] = useState<Chore | undefined>(undefined);
-  const { householdId } = useAuth();
+  const { householdId, authLoading } = useAuth();
 
   useEffect(() => {
-    if (!householdId) return; // Don't subscribe until household is set
+    if (authLoading) return; // Wait for Firebase auth to resolve
 
     const unsubChores = subscribeToChores(setChores);
     const unsubPeople = subscribeToPeople(setPeople);
@@ -23,7 +23,7 @@ const Dashboard: React.FC = () => {
       unsubChores();
       unsubPeople();
     };
-  }, [householdId]);
+  }, [authLoading, householdId]);
 
   const pendingChores = chores.filter((c) => c.status === ChoreStatus.PENDING || c.status === ChoreStatus.IN_PROGRESS);
   const completedChores = chores.filter((c) => c.status === ChoreStatus.COMPLETED);
@@ -77,9 +77,9 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-6">
+    <div className="flex flex-col md:space-y-6 lg:flex-1 lg:min-h-0">
       {/* Stats Cards - Moved below chores on mobile */}
-      <div className="order-2 md:order-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="order-2 md:order-1 grid grid-cols-1 md:grid-cols-3 gap-4 lg:flex-shrink-0">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between md:justify-start">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
@@ -114,13 +114,13 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="order-1 md:order-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="order-1 md:order-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:flex-1 lg:min-h-0">
         {pendingChores.length > 0 && (
-          <div className={`${completedChores.length > 0 ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col`}>
+          <div className={`${completedChores.length > 0 ? 'md:col-span-2 lg:col-span-2' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col lg:h-full`}>
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">Upcoming Tasks</h2>
             </div>
-            <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px]">
+            <div className="divide-y divide-gray-100 overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-280px)] lg:max-h-none lg:flex-1 lg:min-h-0">
               {pendingChores.map((chore) => {
                 const assignee = getAssignee(chore.assigneeId);
                 const priorityConfig = PRIORITY_CONFIG[chore.priority] || PRIORITY_CONFIG[ChorePriority.SOON];
@@ -147,15 +147,15 @@ const Dashboard: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium text-gray-900 truncate max-w-full">{chore.title}</h4>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
+                          <span className={`text-xs px-1.5 py-0.5 rounded border ${priorityConfig.class} whitespace-nowrap`}>
                             {priorityConfig.label}
                           </span>
-                          <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                          <span className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
                             <Zap className="w-2.5 h-2.5" />
                             {chore.difficulty || 'medium'}
                           </span>
                           {chore.status === ChoreStatus.IN_PROGRESS && (
-                             <span className="text-[10px] px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
+                             <span className="text-xs px-1.5 py-0.5 rounded border bg-yellow-100 text-yellow-700 border-yellow-200 whitespace-nowrap">
                                In Progress
                              </span>
                           )}
@@ -163,7 +163,7 @@ const Dashboard: React.FC = () => {
                         
                         {checklistTotal > 0 && (
                           <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold">
+                            <div className="flex items-center justify-between text-xs text-gray-400 font-bold">
                                <span className="flex items-center gap-1"><ListChecks className="w-3 h-3" /> {checklistDone}/{checklistTotal} Items</span>
                                <span>{Math.round(progressPercent)}%</span>
                             </div>
@@ -188,13 +188,13 @@ const Dashboard: React.FC = () => {
                               <span className="truncate max-w-[80px] md:max-w-none">{assignee.name}</span>
                             </div>
                           ) : (
-                            <span className="text-gray-400 italic text-xs">Unassigned</span>
+                            <span className="text-gray-400 italic text-sm">Unassigned</span>
                           )}
-                          <span className="flex items-center gap-1 text-xs md:text-sm">
+                          <span className="flex items-center gap-1 text-sm">
                             <Calendar className="w-3 h-3" />
                             {chore.dueDate ? new Date(chore.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "--/--"}
                           </span>
-                          <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px] md:text-xs capitalize">
+                          <span className="bg-gray-100 px-2 py-0.5 rounded text-xs capitalize">
                             {chore.frequency}
                           </span>
                         </div>
@@ -221,9 +221,9 @@ const Dashboard: React.FC = () => {
         )}
 
         {completedChores.length > 0 && (
-          <div className={`${pendingChores.length > 0 ? 'md:col-span-2 lg:col-span-1' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col`}>
+          <div className={`${pendingChores.length > 0 ? 'md:col-span-2 lg:col-span-1' : 'md:col-span-2 lg:col-span-3'} bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col lg:h-full`}>
             <h2 className="text-lg font-semibold text-gray-800 mb-6">Completion Stats</h2>
-            <div className="h-64 flex-1">
+            <div className="min-h-[256px] flex-1">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
                   data={chartData} 
