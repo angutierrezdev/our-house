@@ -12,12 +12,12 @@ const KanbanBoard: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChore, setEditingChore] = useState<Chore | undefined>(undefined);
-  const { householdId } = useAuth();
+  const { householdId, authLoading } = useAuth();
   
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
-    if (!householdId) return; // Don't subscribe until household is set
+    if (authLoading) return; // Wait for Firebase auth to resolve
 
     const unsubChores = subscribeToChores(setChores);
     const unsubPeople = subscribeToPeople(setPeople);
@@ -25,7 +25,7 @@ const KanbanBoard: React.FC = () => {
       unsubChores();
       unsubPeople();
     };
-  }, [householdId]);
+  }, [authLoading, householdId]);
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -186,13 +186,13 @@ const KanbanBoard: React.FC = () => {
                               >
                                 <div className="flex justify-between items-start mb-2">
                                   <h3 className="font-medium text-gray-900 leading-snug text-sm md:text-base">{chore.title}</h3>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap ml-2 flex-shrink-0 ${priorityConfig.class}`}>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded border whitespace-nowrap ml-2 flex-shrink-0 ${priorityConfig.class}`}>
                                     {priorityConfig.label}
                                   </span>
                                 </div>
 
                                 <div className="flex gap-2 mb-2">
-                                  <span className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
+                                  <span className={`text-xs flex items-center gap-0.5 px-1.5 py-0.5 rounded border capitalize ${getDifficultyColor(chore.difficulty || ChoreDifficulty.MEDIUM)}`}>
                                     <Zap className="w-2.5 h-2.5" />
                                     {chore.difficulty || 'medium'}
                                   </span>
@@ -200,7 +200,7 @@ const KanbanBoard: React.FC = () => {
 
                                 {checklistTotal > 0 && (
                                   <div className="mb-3">
-                                    <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold mb-1">
+                                    <div className="flex items-center justify-between text-xs text-gray-400 font-bold mb-1">
                                       <span className="flex items-center gap-1"><ListChecks className="w-3 h-3" /> {checklistDone}/{checklistTotal}</span>
                                       <span>{Math.round(progressPercent)}%</span>
                                     </div>
@@ -213,7 +213,7 @@ const KanbanBoard: React.FC = () => {
                                   </div>
                                 )}
                                 
-                                <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                                <div className="flex items-center justify-between text-sm text-gray-500 mt-2">
                                   <div className="flex items-center gap-2">
                                     {assignee ? (
                                       <div 
@@ -238,7 +238,7 @@ const KanbanBoard: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={(e) => handleAdvanceState(e, chore)}
-                                      className={`text-xs flex items-center gap-1 px-4 py-2 rounded-full font-bold transition-all shadow-sm active:scale-95 ${
+                                      className={`text-sm flex items-center gap-1 px-4 py-2 rounded-full font-bold transition-all shadow-sm active:scale-95 ${
                                         chore.status === ChoreStatus.PENDING 
                                           ? "bg-blue-600 text-white hover:bg-blue-700" 
                                           : "bg-green-600 text-white hover:bg-green-700"
@@ -271,7 +271,7 @@ const KanbanBoard: React.FC = () => {
               key={col.id}
               type="button"
               onClick={() => scrollToColumn(col.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold border-b-2 transition-all active:scale-95 ${col.btnClass}`}
+              className={`px-4 py-2 rounded-xl text-sm font-bold border-b-2 transition-all active:scale-95 ${col.btnClass}`}
             >
               {col.title}
             </button>

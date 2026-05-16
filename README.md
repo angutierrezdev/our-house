@@ -4,170 +4,80 @@
 
 # Our House - Household Task Management App
 
-A modern, accessible household task management application built with React, TypeScript, and Tailwind CSS. Manage chores, track household members, and get AI-powered task suggestions using Google Gemini.
+A modern, accessible household task management PWA built with React, TypeScript, and Tailwind CSS. Manage chores, track household members, and get AI-powered task suggestions using Google Gemini.
 
 ## Features
 
-- ✅ **Task Management** - Create, track, and manage household tasks with priority levels and difficulty indicators
-- 🎯 **Kanban Board** - Visual task board with To Do, In Progress, and Done columns
-- 👥 **Household Members** - Manage family members with color-coded profiles
-- 🤖 **AI Assistant** - AI-powered task suggestions powered by Google Gemini
-- 📱 **Mobile Responsive** - Fully responsive design optimized for all device sizes
-- ♿ **Accessibility First** - Improved font sizes (14px minimum on mobile) for better readability
-- 📊 **Task Statistics** - Track completion rates and task metrics
-- 🌐 **Progressive Web App** - Installable PWA with offline support
-- 💾 **Local Storage** - All data saved locally in browser
-- 🔐 **Firebase Integration** - Optional cloud storage for data sync
-
-## Accessibility Improvements
-
-**Latest Update (Jan 2026):** Font sizes have been increased to improve readability for users with vision accessibility needs:
-- Mobile devices: Minimum 14px font size (previously 10px) for better legibility
-- Custom Tailwind CSS configuration with fluid typography scale
-- All font sizes properly configured in `index.html`
+- **Task Management** — Create, track, and manage household tasks with priority levels and difficulty indicators
+- **Kanban Board** — Visual drag-and-drop task board with To Do, In Progress, and Done columns
+- **Household Members** — Manage family members with color-coded profiles, shareable invite codes, and QR-based device sync
+- **AI Assistant** — AI-powered task suggestions powered by Google Gemini
+- **Task Statistics** — Track completion rates and task metrics with charts
+- **Progressive Web App** — Installable on mobile and desktop with offline support and automatic background updates
+- **Cloud Sync** — Optional Firebase Firestore sync with offline-first localStorage fallback; last-write-wins conflict resolution
+- **Multi-device Auth** — Email/password and Google sign-in, household invite system with 6-character codes
 
 ## Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **Routing**: React Router v7
-- **UI Components**: Lucide React icons
-- **State Management**: React hooks with local storage persistence
-- **Drag & Drop**: @hello-pangea/dnd for task board
-- **QR Code**: html5-qrcode & qrcode.react for device sync
-- **Charts**: Recharts for task statistics
-- **Date Handling**: date-fns
-- **Build Tool**: Vite
+- **Frontend**: React 19, TypeScript, Tailwind CSS 4
+- **Routing**: React Router v7 (hash-based for PWA/GitHub Pages compatibility)
+- **Build Tool**: Vite 6
+- **Drag & Drop**: @hello-pangea/dnd
+- **Charts**: Recharts
 - **AI Integration**: Google Generative AI (Gemini)
-- **Database**: Firebase (optional)
-
-## Project Structure
-
-```
-├── components/          # Reusable React components
-│   ├── AIAssistant.tsx
-│   ├── ChoreModal.tsx
-│   ├── Layout.tsx
-│   ├── PWAUpdate.tsx
-│   └── QRScanner.tsx
-├── pages/               # Page components
-│   ├── Dashboard.tsx
-│   ├── KanbanBoard.tsx
-│   ├── PeopleManager.tsx
-│   └── Settings.tsx
-├── services/            # Business logic & API integration
-│   ├── dataService.ts
-│   ├── geminiService.ts
-│   ├── localStorage.ts
-│   └── settingsService.ts
-├── public/              # Static assets & PWA files
-├── App.tsx              # Root app component
-├── index.tsx            # Entry point
-├── tailwind.config.ts   # Tailwind configuration
-└── vite.config.ts       # Vite configuration
-```
+- **Database**: Firebase Firestore (optional) + localStorage
+- **Icons**: Lucide React
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 16+ 
-- npm or yarn
-- Google Gemini API key (for AI features, optional)
-- Firebase config (for cloud storage, optional)
+
+- Node.js 18+
+- A Firebase project (optional — app runs fully offline without it)
+- A Google Gemini API key (optional — for AI task suggestions)
+
+### Environment Variables
+
+Create a `.env` file at the project root:
+
+```env
+# Optional — required for cloud sync and multi-device households
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_APP_ID=
+
+# Optional — required for AI task suggestions
+GEMINI_API_KEY=
+```
+
+The app runs in offline-only mode if Firebase vars are absent.
 
 ### Run Locally
 
-1. **Clone and install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Set up environment variables** (create `.env.local`):
-   ```
-   VITE_GEMINI_API_KEY=your_gemini_api_key_here
-   ```
-
-3. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-   
-   The app will be available at `http://localhost:3000/our-house/`
-
-### Build for Production
-
 ```bash
-npm run build
+npm install
+npm run dev      # http://localhost:3000/our-house/
+npm run build    # production build → dist/
+npm run preview  # preview production build locally
 ```
 
-Optimized build output will be in the `dist/` directory.
+## Firebase Setup (Optional)
 
-### Preview Production Build
-
-```bash
-npm run preview
-```
-
-## Configuration
-
-### Firebase Setup (Optional)
-Configure your Firebase project in the Settings page:
-- API Key
-- Auth Domain
-- Project ID
-- Storage Bucket
-- Messaging Sender ID
-- App ID
-
-### Tailwind Customization
-Modify `tailwind.config.ts` to customize:
-- Color schemes
-- Font sizes
-- Spacing scales
-- Breakpoints
+1. Create a Firestore database in your Firebase project
+2. Deploy the security rules from `firestore.rules`
+3. Enable **Email/Password** and **Google** as sign-in providers in Firebase Auth
+4. Add your Firebase config to `.env` (see above)
 
 ## Browser Support
 
 - Chrome/Edge 90+
 - Firefox 88+
 - Safari 14+
-- Mobile browsers (iOS Safari 14+, Chrome Android)
-
-## Development
-
-### Available Scripts
-
-```bash
-npm run dev      # Start development server
-npm run build    # Create production build
-npm run preview  # Preview production build
-```
-
-### Code Style
-
-The project uses:
-- TypeScript for type safety
-- Tailwind CSS for styling
-- Conventional commit messages for git history
-
-## Known Limitations
-
-- Data is stored locally in browser (not synced across devices without Firebase)
-- Firebase integration requires manual configuration
-- Offline mode has limited functionality
-
-## Future Enhancements
-
-- Cloud sync with user authentication
-- Recurring task templates
-- Mobile app (React Native)
-- Task categories and custom tags
-- Notification system
-- Advanced analytics dashboard
+- iOS Safari 14+, Chrome Android
 
 ## License
 
 MIT
-
----
-
-**View your app in AI Studio**: https://ai.studio/apps/drive/1k5Zt0vUWG_YYCUxbc8Ts2Ht2wvlMvVcf

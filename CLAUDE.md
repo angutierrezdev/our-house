@@ -1,208 +1,113 @@
-# Our House - PWA Version Management & Update System
+# CLAUDE.md
 
-## Overview
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This document describes the PWA (Progressive Web App) versioning and automatic update system for the Our House application. The system automatically detects when a new version is available and notifies users with an option to reload or auto-updates during initial page loads.
+## Development Commands
 
-## Version Management
+```bash
+npm run dev      # Start dev server on port 3000
+npm run build    # Production build → dist/
+npm run preview  # Serve production build locally
+```
 
-### Single Source of Truth: `metadata.json`
+No test framework is configured.
 
-All versioning is controlled through `/metadata.json`. The version number defined here is:
+## Architecture Overview
+
+**Our House** is an offline-first PWA for household chore/task management. It uses React 19 + TypeScript + Vite, with Firebase Firestore as an optional cloud backend and localStorage as the primary/fallback store.
+
+### Data Flow
+
+All data access goes through `services/dataService.ts`, which implements a hybrid strategy:
+- **With `householdId`:** Read/write Firestore subcollections at `households/{householdId}/chores` and `.../people`, with localStorage as a cache.
+- **Without `householdId`:** localStorage only.
+
+Offline changes are queued locally and synced via `syncLocalDataToFirebase()` on reconnect. Conflict resolution is last-write-wins based on `updatedAt` timestamps. Deletions are tracked as tombstones in localStorage (`choremaster_deleted_chores`, `choremaster_deleted_people`) and replayed to Firestore on sync.
+
+### Auth & Household Setup
+
+`AuthContext` (`contexts/AuthContext.tsx`) holds `user`, `profile`, and `householdId`. The app gates routing behind two conditions: a Firebase user must exist AND a `householdId` must be set. `App.tsx` renders `AuthPanel` or `HouseholdSetupSheet` before showing main nav when either condition is unmet.
+
+Firebase is initialized with graceful degradation in `firebase.ts` — if env vars are missing, all Firestore/Auth calls become no-ops and the app runs in offline-only mode.
+
+### Routing
+
+Hash-based routing (`HashRouter`) for PWA/GitHub Pages compatibility. Routes are defined in `constants.ts` and wired in `App.tsx`: `/` (Dashboard), `/kanban`, `/people`, `/settings`.
+
+### Subscription Pattern
+
+Pages subscribe to real-time data using `subscribeToChores(callback)` / `subscribeToPeople(callback)` from `dataService`. **Do not require a `householdId` before subscribing.** Instead, wait for auth state to finish initializing, then subscribe so pages work in both Firestore-backed and localStorage-only modes. `dataService` will use Firestore when `householdId` is present and fall back to localStorage when it is not.
+
+```typescript
+useEffect(() => {
+  if (authLoading) return;
+  const unsub = subscribeToChores(setChores);
+  return () => unsub();
+}, [authLoading, householdId]);
+```
+
+### Environment Variables
+
+Environment variables are loaded by `vite.config.ts` using Vite's `loadEnv` and injected into the client build as `process.env.*` via `define`. Use the unprefixed keys shown in `.env.example` for Firebase and Gemini AI configuration. See `vite.config.ts` for the full list. The app deploys to a subpath — Vite's `base` is set to `/our-house/`.
+
+---
+
+## PWA Version Management & Update System
+
+All versioning is controlled through `/metadata.json` (single source of truth). The version is:
 - Read by the service worker during installation
 - Displayed in the Settings page
-- Used to differentiate cache names (prevents stale cache conflicts)
-
-**Location:** `/metadata.json`
-```json
-{
-  "name": "Our House",
-  "version": "2.1.2",
-  "description": "...",
-  "requestFramePermissions": []
-}
-```
+- Used to name caches (`our-house-v{VERSION}`) to prevent stale cache conflicts
 
 ### How to Version Bump
 
-1. **Update `/metadata.json` with new version:**
-   ```json
-   {
-     "version": "2.1.3"
-   }
-   ```
+1. Update `version` in `/metadata.json`
+2. Commit and deploy
 
-2. **Commit and deploy** the updated `metadata.json`
+The system automatically detects the change, shows an update notification to active users, and silently updates on first page load.
 
-3. **The system will automatically:**
-   - Detect the new version when users refresh/reload
-   - Show an update notification banner if the app is running
-   - Auto-update without notification if it's the first page load
-   - Clear old service worker caches
+### System Components
 
-**Note:** Increment version using semantic versioning (MAJOR.MINOR.PATCH)
-
-## System Components
-
-### 1. Service Worker (`/public/sw.js`)
-
-**Responsibilities:**
+**Service Worker (`/public/sw.js`)**
 - Fetches version from `metadata.json` on startup
-- Creates cache with version-based naming (e.g., `our-house-v2.1.2`)
-- Implements cache-first fetch strategy
-- Cleans up old caches when version changes
-- Communicates version to client via `MessageChannel`
+- Cache-first fetch strategy; cleans old caches on activate
+- Does NOT auto-call `skipWaiting()` — waits for client signal
+- Responds to `GET_VERSION` and `SKIP_WAITING` messages via `MessageChannel`
 
-**Key Features:**
-- Does NOT auto-call `skipWaiting()` to allow user notification
-- Responds to `GET_VERSION` messages from client
-- Responds to `SKIP_WAITING` messages to activate new worker
+**PWAUpdate Component (`/components/PWAUpdate.tsx`)**
+- Registers the service worker and listens for `updatefound` / `controllerchange`
+- **Initial Load (<2 seconds):** silently calls `skipWaiting()`
+- **App Running (>2 seconds):** shows non-blocking bottom banner with "Update Now" / dismiss
+- On "Update Now": sends `SKIP_WAITING` → page reloads on `controllerchange`
 
-### 2. PWA Update Component (`/components/PWAUpdate.tsx`)
+**Settings Page (`/pages/Settings.tsx`)**
+- Shows both App version (from `metadata.json`) and active Service Worker version
+- "Deregister Service Worker" button for troubleshooting version mismatches
 
-**Responsibilities:**
-- Registers the service worker
-- Detects when an update is available
-- Shows version information in notification
-- Implements initial load detection
+### Implementation Notes
 
-**Update Detection Logic:**
-- **Initial Load (<2 seconds):** Auto-updates silently without notification
-- **App Running (>2 seconds):** Shows non-blocking notification banner
-
-**Notification Display:**
-- Shows current version → new version (e.g., "2.1.1 → 2.1.2")
-- Provides "Update Now" button (optional)
-- Provides dismiss button (X)
-- Auto-reloads page after user clicks "Update Now"
-
-**How It Works:**
-1. Registers service worker on component mount
-2. Checks if `registration.waiting` exists (update already queued)
-3. Listens for `updatefound` event (new update being installed)
-4. Detects initial load using `performance.timing.navigationStart`
-5. On initial load: silently calls `skipWaiting()`
-6. On running app: shows notification and waits for user action
-7. Listens for `controllerchange` event and reloads page
-
-### 3. Settings Page (`/pages/Settings.tsx`)
-
-**Version Display:**
-- Shows current App version (from `metadata.json`)
-- Shows current Service Worker version (from active SW)
-- Located at bottom of settings page under "App Version & Cache"
-
-**Useful for:**
-- Debugging version mismatches
-- Confirming service worker updates
-- User transparency
-
-## User Experience
-
-### For First-Time Visitors
-1. User loads app for first time
-2. Service worker installs in background
-3. No notification shown (detected as initial load)
-4. Service worker silently activated
-5. User sees app without interruption
-
-### For Returning Users (App is Running)
-1. User is already using the app
-2. New version deployed (version in `metadata.json` changed)
-3. Browser detects new service worker
-4. **Non-blocking notification appears at bottom:**
-   - Shows "Update Available" with version info
-   - User can dismiss with X button
-   - User can click "Update Now" to reload
-5. If dismissed: notification stays hidden until next reload
-6. If "Update Now" clicked: service worker activated and page reloads
-
-### For Returning Users (App Closed, Returning Later)
-1. User hasn't had the app open in a while
-2. Opens app to find new version available
-3. Service worker detects update is already waiting
-4. Update is applied automatically (initial load detection)
-5. User sees app without notification
-
-## Message Protocol
-
-### Service Worker ↔ Client Communication
-
-**Message: `GET_VERSION`**
-```javascript
-const channel = new MessageChannel();
-channel.port1.onmessage = (event) => {
-  console.log('SW version:', event.data.version);
-};
-worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
-```
-
-**Message: `SKIP_WAITING`**
-```javascript
-worker.postMessage({ type: 'SKIP_WAITING' });
-```
-
-## Troubleshooting
-
-### Version Mismatch
-
-**Symptom:** Settings shows different app and SW versions, or app is not updating
-
-**Solution:**
-1. Go to Settings page
-2. Scroll to "Troubleshooting" section
-3. Click "Deregister Service Worker"
-4. App will automatically reload and fetch latest version
-
-### Manual Cache Clear
-
-**Command in browser console:**
-```javascript
-navigator.serviceWorker.getRegistrations().then(registrations => {
-  registrations.forEach(reg => reg.unregister());
-}).then(() => window.location.reload());
-```
-
-## Implementation Notes for Agents
-
-### When Modifying Service Worker
-- Keep version fetching at startup (lines 6-18 in sw.js)
+**When modifying `sw.js`:**
+- Keep version fetching at startup (lines 6–18)
 - Maintain `CACHE_NAME = 'our-house-v${VERSION}'` format
-- Do NOT auto-call `skipWaiting()` - let client decide
-- Maintain `GET_VERSION` and `SKIP_WAITING` message handlers
+- Do NOT auto-call `skipWaiting()` — let the client decide
+- Keep `GET_VERSION` and `SKIP_WAITING` message handlers
 
-### When Modifying PWAUpdate Component
+**When modifying `PWAUpdate.tsx`:**
 - Keep initial load detection threshold at 2 seconds
 - Preserve `checkIsInitialLoad()` function
-- Maintain non-blocking notification positioning
 - Keep auto-reload on `controllerchange` event
 
-### When Modifying Settings
-- Keep version display in sync with app/SW versions
-- Fetch from both `metadata.json` and service worker
-- Deregister button should force user to reload
+### Troubleshooting Version Mismatches
+
+Settings → "Troubleshooting" → "Deregister Service Worker" → app reloads.
+
+Or via browser console:
+```javascript
+navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).then(() => location.reload());
+```
 
 ### Deployment Checklist
 - [ ] Update version in `/metadata.json`
-- [ ] Test locally: Check Settings shows updated version
-- [ ] Test update notification: Open app, deploy new version, refresh in another tab
-- [ ] Test initial load: Hard refresh (Cmd+Shift+R / Ctrl+Shift+F5)
-- [ ] Monitor for any version mismatches in Settings page
-
-## Files to Know
-
-| File | Purpose |
-|------|---------|
-| `/metadata.json` | Single source of truth for version |
-| `/public/sw.js` | Service worker implementation |
-| `/components/PWAUpdate.tsx` | Update detection & notification UI |
-| `/pages/Settings.tsx` | Version display & troubleshooting |
-| `/public/manifest.json` | PWA manifest (icons, display mode) |
-| `/index.tsx` | PWAUpdate component mounted here |
-
-## Performance Impact
-
-- **Startup:** ~10-50ms to fetch `metadata.json` in service worker
-- **Cache Overhead:** One cache per version (old caches auto-deleted on activate)
-- **Message Communication:** Negligible (<1ms)
-- **Update Detection:** Automatic and asynchronous, does not block rendering
+- [ ] Check Settings shows updated version locally
+- [ ] Test update notification: open app, deploy, refresh in another tab
+- [ ] Test initial load: hard refresh (Cmd+Shift+R / Ctrl+Shift+F5)

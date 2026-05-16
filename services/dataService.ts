@@ -286,18 +286,15 @@ export const addPerson = async (person: Omit<Person, "id">) => {
   // 1. Update Local
   const people = getLocalPeople();
   saveLocalPeople([...people, newPerson]);
+  notifyPeopleListeners();
 
-  // 2. Update Firebase
-  if (isFirebaseConfigured && db) {
+  // 2. Update Firebase (best-effort, data already safe in localStorage)
+  if (isFirebaseConfigured && db && _householdId) {
     try {
       await setDoc(doc(db, colPath("people"), id), newPerson);
     } catch (error) {
       console.warn('⚠️ Failed to sync person to Firebase (offline?), will retry when online:', error);
-      // Data is already in localStorage, will sync when online
     }
-  } else {
-    // Notify local listeners when not using Firebase
-    notifyPeopleListeners();
   }
 };
 
@@ -307,20 +304,17 @@ export const deletePerson = async (id: string) => {
   const people = getLocalPeople();
   saveLocalPeople(people.filter(p => p.id !== id));
   recordDeletedPerson(id, deletedAt);
+  notifyPeopleListeners();
 
-  // 2. Update Firebase
-  if (isFirebaseConfigured && db) {
+  // 2. Update Firebase (best-effort, data already safe in localStorage)
+  if (isFirebaseConfigured && db && _householdId) {
     try {
       await deleteDoc(doc(db, colPath("people"), id));
       // Deletion reached Firestore — tombstone no longer needed.
       clearDeletedPerson(id);
     } catch (error) {
       console.warn('⚠️ Failed to sync person deletion to Firebase (offline?), will retry when online:', error);
-      // Data is already removed from localStorage, will sync when online
     }
-  } else {
-    // Notify local listeners when not using Firebase
-    notifyPeopleListeners();
   }
 };
 
@@ -370,18 +364,15 @@ export const addChore = async (chore: Omit<Chore, "id">) => {
   // 1. Update Local
   const chores = getLocalChores();
   saveLocalChores(sortChores([...chores, newChore]));
+  notifyChoreListeners();
 
-  // 2. Update Firebase
-  if (isFirebaseConfigured && db) {
+  // 2. Update Firebase (best-effort, data already safe in localStorage)
+  if (isFirebaseConfigured && db && _householdId) {
     try {
       await setDoc(doc(db, colPath("chores"), id), newChore);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore to Firebase (offline?), will retry when online:', error);
-      // Data is already in localStorage, will sync when online
     }
-  } else {
-    // Notify local listeners when not using Firebase
-    notifyChoreListeners();
   }
 };
 
@@ -391,9 +382,10 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
   const chores = getLocalChores();
   const updated = chores.map(c => c.id === id ? { ...c, ...stamped } : c);
   saveLocalChores(sortChores(updated));
+  notifyChoreListeners();
 
-  // 2. Update Firebase
-  if (isFirebaseConfigured && db) {
+  // 2. Update Firebase (best-effort, data already safe in localStorage)
+  if (isFirebaseConfigured && db && _householdId) {
     try {
       // Remove undefined values to prevent Firebase errors
       const cleanedUpdates = Object.fromEntries(
@@ -402,11 +394,7 @@ export const updateChore = async (id: string, updates: Partial<Chore>) => {
       await updateDoc(doc(db, colPath("chores"), id), cleanedUpdates);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore update to Firebase (offline?), will retry when online:', error);
-      // Data is already in localStorage, will sync when online
     }
-  } else {
-    // Notify local listeners when not using Firebase
-    notifyChoreListeners();
   }
 };
 
@@ -416,20 +404,17 @@ export const deleteChore = async (id: string) => {
   const chores = getLocalChores();
   saveLocalChores(chores.filter(c => c.id !== id));
   recordDeletedChore(id, deletedAt);
+  notifyChoreListeners();
 
-  // 2. Update Firebase
-  if (isFirebaseConfigured && db) {
+  // 2. Update Firebase (best-effort, data already safe in localStorage)
+  if (isFirebaseConfigured && db && _householdId) {
     try {
       await deleteDoc(doc(db, colPath("chores"), id));
       // Deletion reached Firestore — tombstone no longer needed.
       clearDeletedChore(id);
     } catch (error) {
       console.warn('⚠️ Failed to sync chore deletion to Firebase (offline?), will retry when online:', error);
-      // Data is already removed from localStorage, will sync when online
     }
-  } else {
-    // Notify local listeners when not using Firebase
-    notifyChoreListeners();
   }
 };
 
