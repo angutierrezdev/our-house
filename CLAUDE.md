@@ -36,19 +36,19 @@ Hash-based routing (`HashRouter`) for PWA/GitHub Pages compatibility. Routes are
 
 ### Subscription Pattern
 
-Pages subscribe to real-time data using `subscribeToChores(callback)` / `subscribeToPeople(callback)` from `dataService`. **Always guard subscriptions with a `householdId` check** before subscribing — pages use a guard clause pattern:
+Pages subscribe to real-time data using `subscribeToChores(callback)` / `subscribeToPeople(callback)` from `dataService`. **Do not require a `householdId` before subscribing.** Instead, wait for auth state to finish initializing, then subscribe so pages work in both Firestore-backed and localStorage-only modes. `dataService` will use Firestore when `householdId` is present and fall back to localStorage when it is not.
 
 ```typescript
 useEffect(() => {
-  if (!householdId) return;
+  if (authLoading) return;
   const unsub = subscribeToChores(setChores);
   return () => unsub();
-}, [householdId]);
+}, [authLoading, householdId]);
 ```
 
 ### Environment Variables
 
-Loaded via Vite (`import.meta.env`). Firebase and Gemini AI credentials must be prefixed with `VITE_`. See `vite.config.ts` for the full list. The app deploys to a subpath — Vite's `base` is set to `/our-house/`.
+Environment variables are loaded by `vite.config.ts` using Vite's `loadEnv` and injected into the client build as `process.env.*` via `define`. Use the unprefixed keys shown in `.env.example` for Firebase and Gemini AI configuration. See `vite.config.ts` for the full list. The app deploys to a subpath — Vite's `base` is set to `/our-house/`.
 
 ---
 
