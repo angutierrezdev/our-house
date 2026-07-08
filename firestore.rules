@@ -9,8 +9,12 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Users can read their own profile.
-      allow read: if request.auth != null && request.auth.uid == uid;
+      // Users can read their own profile, or any profile belonging to the
+      // same household (needed by control-gastos's NoAccessPage to show the
+      // admin's name/email; only exposes uid/email/role/householdId, no
+      // sensitive data).
+      allow read: if request.auth != null
+                  && (request.auth.uid == uid || isMember(resource.data.householdId));
 
       // Initial profile creation (sign-up / Google sign-in):
       // only allowed with role='member' and householdId=null so that
@@ -54,6 +58,14 @@ service cloud.firestore {
                         )
                       )
                     );
+
+      // Admin-only: toggle canAccessGastos on another member's profile
+      // (control-gastos's Settings > Members section). Additive to the
+      // update rule above — Firestore ORs allow rules across statements
+      // in the same match block, so this coexists with the self-only
+      // rule rather than replacing it.
+      allow update: if isAdmin(resource.data.householdId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['canAccessGastos']);
     }
 
     match /households/{householdId} {
@@ -81,6 +93,34 @@ service cloud.firestore {
       allow delete: if isMember(householdId);
     }
 
+    // control-gastos — all gastos data lives as subcollections of
+    // households/{householdId}/. Admin always has access regardless of
+    // canAccessGastos (see hasGastosAccess).
+    match /households/{householdId}/gastos_settings/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_categorias/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_conceptos/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_anuales/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_compras_meses/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_registros/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_detalle/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_negocios/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+
     function isMember(householdId) {
       return request.auth != null
           && get(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -103,6 +143,15 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'title'])
           && data.id is string
           && data.title is string;
+    }
+
+    // control-gastos helpers
+    function canAccessGastosFlag(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.canAccessGastos == true;
+    }
+
+    function hasGastosAccess(householdId) {
+      return isMember(householdId) && (isAdmin(householdId) || canAccessGastosFlag(request.auth.uid));
     }
   }
 }
