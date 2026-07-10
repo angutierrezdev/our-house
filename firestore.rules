@@ -93,6 +93,45 @@ service cloud.firestore {
       allow delete: if isMember(householdId);
     }
 
+    // our-menu — weekly menu planning data lives as subcollections of
+    // households/{householdId}/. grocery_lists uses the smart-grocery
+    // GroceryList schema so that app can consume the generated lists.
+    match /households/{householdId}/menu_ingredients/{ingredientId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidIngredient(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidIngredient(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/menu_dishes/{dishId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidDish(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidDish(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/menu_week_plans/{weekId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidWeekPlan(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidWeekPlan(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/grocery_lists/{listId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidGroceryList(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidGroceryList(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
     // control-gastos — all gastos data lives as subcollections of
     // households/{householdId}/. Admin always has access regardless of
     // canAccessGastos (see hasGastosAccess).
@@ -143,6 +182,34 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'title'])
           && data.id is string
           && data.title is string;
+    }
+
+    // our-menu validators
+    function isValidIngredient(data) {
+      return data.keys().hasAll(['id', 'name'])
+          && data.id is string
+          && data.name is string;
+    }
+
+    function isValidDish(data) {
+      return data.keys().hasAll(['id', 'name', 'ingredients'])
+          && data.id is string
+          && data.name is string
+          && data.ingredients is list;
+    }
+
+    function isValidWeekPlan(data) {
+      return data.keys().hasAll(['id', 'weekStart', 'days'])
+          && data.id is string
+          && data.weekStart is string
+          && data.days is map;
+    }
+
+    function isValidGroceryList(data) {
+      return data.keys().hasAll(['id', 'title', 'items'])
+          && data.id is string
+          && data.title is string
+          && data.items is list;
     }
 
     // control-gastos helpers
