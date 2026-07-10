@@ -89,6 +89,7 @@ async function seed() {
       createdAt: 1,
     });
     await setDoc(doc(admin, 'households/h1/gastos_settings/main'), { currency: 'EUR' });
+    await setDoc(doc(admin, 'invites/ABC123'), { householdId: 'h1' });
   });
 }
 
@@ -170,6 +171,45 @@ describe('households (regression)', () => {
       where('inviteCode', '==', 'ABC123'),
     );
     await assertFails(getDocs(q));
+  });
+});
+
+describe('invites', () => {
+  it('any signed-in user can resolve a known code; anon cannot', async () => {
+    await assertSucceeds(getDoc(doc(db('dave'), 'invites/ABC123')));
+    await assertFails(getDoc(doc(anonDb(), 'invites/ABC123')));
+  });
+
+  it('cannot be listed, even by household members', async () => {
+    await assertFails(getDocs(collection(db('alice'), 'invites')));
+  });
+
+  it('members can upsert their household invite under its real code only', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'invites/ABC123'), { householdId: 'h1' }));
+    await assertSucceeds(setDoc(doc(db('carol'), 'invites/XYZ789'), { householdId: 'h2' }));
+    // Wrong code for the household.
+    await assertFails(setDoc(doc(db('bob'), 'invites/FAKE99'), { householdId: 'h1' }));
+    // Not a member of the target household.
+    await assertFails(setDoc(doc(db('carol'), 'invites/ABC123'), { householdId: 'h1' }));
+    // Extra fields rejected.
+    await assertFails(
+      setDoc(doc(db('bob'), 'invites/ABC123'), { householdId: 'h1', admin: true }),
+    );
+  });
+
+  it('only the household admin can delete its invite', async () => {
+    await assertFails(deleteDoc(doc(db('bob'), 'invites/ABC123')));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'invites/ABC123')));
+  });
+
+  it('supports the full join flow: lookup code, join, then read household', async () => {
+    const dave = db('dave');
+    const invite = await getDoc(doc(dave, 'invites/ABC123'));
+    const householdId = invite.data()?.householdId as string;
+    await assertSucceeds(
+      updateDoc(doc(dave, 'users/dave'), { householdId, role: 'member' }),
+    );
+    await assertSucceeds(getDoc(doc(db('dave'), `households/${householdId}`)));
   });
 });
 
