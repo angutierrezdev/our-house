@@ -75,6 +75,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin(householdId);
     }
 
+    // Invite-code lookup: invites/{CODE} -> { householdId }. Enables the
+    // join-by-invite-code flow (households themselves are only readable by
+    // members, so a joining user cannot query them by inviteCode).
+    match /invites/{code} {
+      // Direct get only — no list, so codes cannot be enumerated. Knowing
+      // a code is what grants the lookup.
+      allow get: if request.auth != null;
+      allow list: if false;
+
+      // Any member of the target household may publish/refresh its invite
+      // doc (apps upsert it on sign-in), but only under the household's
+      // real inviteCode and with no extra data.
+      allow create, update: if isMember(request.resource.data.householdId)
+                    && get(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.inviteCode == code
+                    && request.resource.data.keys().hasOnly(['householdId'])
+                    && request.resource.data.householdId is string;
+
+      allow delete: if isAdmin(resource.data.householdId);
+    }
+
     match /households/{householdId}/people/{personId} {
       allow read: if isMember(householdId);
       allow create: if isMember(householdId) && isValidPerson(request.resource.data);
@@ -89,6 +109,45 @@ service cloud.firestore {
       allow create: if isMember(householdId) && isValidChore(request.resource.data);
       allow update: if isMember(householdId)
                     && isValidChore(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    // our-menu — weekly menu planning data lives as subcollections of
+    // households/{householdId}/. grocery_lists uses the smart-grocery
+    // GroceryList schema so that app can consume the generated lists.
+    match /households/{householdId}/menu_ingredients/{ingredientId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidIngredient(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidIngredient(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/menu_dishes/{dishId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidDish(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidDish(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/menu_week_plans/{weekId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidWeekPlan(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidWeekPlan(request.resource.data)
+                    && request.resource.data.id == resource.data.id;
+      allow delete: if isMember(householdId);
+    }
+
+    match /households/{householdId}/grocery_lists/{listId} {
+      allow read: if isMember(householdId);
+      allow create: if isMember(householdId) && isValidGroceryList(request.resource.data);
+      allow update: if isMember(householdId)
+                    && isValidGroceryList(request.resource.data)
                     && request.resource.data.id == resource.data.id;
       allow delete: if isMember(householdId);
     }
@@ -143,6 +202,34 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'title'])
           && data.id is string
           && data.title is string;
+    }
+
+    // our-menu validators
+    function isValidIngredient(data) {
+      return data.keys().hasAll(['id', 'name'])
+          && data.id is string
+          && data.name is string;
+    }
+
+    function isValidDish(data) {
+      return data.keys().hasAll(['id', 'name', 'ingredients'])
+          && data.id is string
+          && data.name is string
+          && data.ingredients is list;
+    }
+
+    function isValidWeekPlan(data) {
+      return data.keys().hasAll(['id', 'weekStart', 'days'])
+          && data.id is string
+          && data.weekStart is string
+          && data.days is map;
+    }
+
+    function isValidGroceryList(data) {
+      return data.keys().hasAll(['id', 'title', 'items'])
+          && data.id is string
+          && data.title is string
+          && data.items is list;
     }
 
     // control-gastos helpers
