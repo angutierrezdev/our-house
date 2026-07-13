@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@/Users/angel/Projects/household-context.md
+
+Shared household context (Firebase project, Firestore layout, cross-repo contracts, conventions) is imported above; it lives outside the repo and is machine-local. Key facts also stated there: **this repo's production branch is `pwa`, not `main`**, and `firestore.rules` here governs all household apps (`npm run test:rules` runs the emulator suite).
+
 ## Development Commands
 
 ```bash
