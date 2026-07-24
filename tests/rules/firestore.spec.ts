@@ -240,6 +240,43 @@ describe('gastos (regression)', () => {
   });
 });
 
+describe('gastos ingestion (credit-card email)', () => {
+  it('admin can read/write the editable ingestion collections', async () => {
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'households/h1/gastos_tarjetas/t1'), {
+        id: 't1', nombre: 'Oro', banco: 'BBVA', activo: true,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'households/h1/gastos_mapeos/m1'), {
+        id: 'm1', banco: 'BBVA', descripcionNormalizada: 'STARBUCKS', negocioId: 'n1', activo: true,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db('alice'), 'households/h1/gastos_bancos/b1'), {
+        id: 'b1', nombre: 'BBVA', keywords: ['compra'], startDate: '2026-07-01', activo: true,
+      }),
+    );
+  });
+
+  it('a member without the gastos flag cannot touch the ingestion collections', async () => {
+    await assertFails(getDoc(doc(db('bob'), 'households/h1/gastos_tarjetas/t1')));
+    await assertFails(setDoc(doc(db('bob'), 'households/h1/gastos_mapeos/m1'), { id: 'm1' }));
+  });
+
+  it('a different household cannot access the ingestion collections', async () => {
+    await assertFails(getDoc(doc(db('carol'), 'households/h1/gastos_bancos/b1')));
+  });
+
+  it('gastos_inbox is admin-read-only and denies all client writes', async () => {
+    await assertSucceeds(getDoc(doc(db('alice'), 'households/h1/gastos_inbox/msg1')));
+    // even the admin cannot write — only the service account (bypasses rules) does
+    await assertFails(setDoc(doc(db('alice'), 'households/h1/gastos_inbox/msg1'), { banco: 'BBVA' }));
+    // a non-admin member cannot even read it
+    await assertFails(getDoc(doc(db('bob'), 'households/h1/gastos_inbox/msg1')));
+  });
+});
+
 describe('menu_ingredients', () => {
   it('members have full CRUD with valid data', async () => {
     const bob = db('bob');

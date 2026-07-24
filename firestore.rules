@@ -179,6 +179,25 @@ service cloud.firestore {
     match /households/{householdId}/gastos_negocios/{docId} {
       allow read, write: if hasGastosAccess(householdId);
     }
+    // Credit-card email ingestion (control-gastos). The three editable
+    // collections are synced for every gastos-access user, so they use the
+    // same hasGastosAccess gate as the rest of the gastos data.
+    match /households/{householdId}/gastos_tarjetas/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_mapeos/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    match /households/{householdId}/gastos_bancos/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
+    // Raw ingested charges — written ONLY by the ingestion Apps Script service
+    // account (bypasses rules). Clients are read-only and admin-only; the
+    // review queue (Bandeja) is admin-only in the app.
+    match /households/{householdId}/gastos_inbox/{messageId} {
+      allow read: if isAdmin(householdId);
+      allow write: if false;
+    }
 
     function isMember(householdId) {
       return request.auth != null
