@@ -179,6 +179,11 @@ service cloud.firestore {
     match /households/{householdId}/gastos_negocios/{docId} {
       allow read, write: if hasGastosAccess(householdId);
     }
+    // One row per branch of a negocio ({ id, negocioId, lat, lon }), for
+    // nearby-business suggestions. Proximity is an in-memory scan — no indexes.
+    match /households/{householdId}/gastos_ubicaciones/{docId} {
+      allow read, write: if hasGastosAccess(householdId);
+    }
     // Credit-card email ingestion (control-gastos). The three editable
     // collections are synced for every gastos-access user, so they use the
     // same hasGastosAccess gate as the rest of the gastos data.
