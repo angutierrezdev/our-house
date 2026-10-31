@@ -277,6 +277,26 @@ describe('gastos ingestion (credit-card email)', () => {
   });
 });
 
+describe('gastos_ubicaciones', () => {
+  const path = 'households/h1/gastos_ubicaciones/u1';
+  const ubicacion = { id: 'u1', negocioId: 'n1', lat: 19.4326, lon: -99.1332 };
+
+  it('a user with gastos access can read and write', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), path), ubicacion));
+    await assertSucceeds(getDoc(doc(db('alice'), path)));
+  });
+
+  it('a member without the gastos flag cannot read or write', async () => {
+    await assertFails(getDoc(doc(db('bob'), path)));
+    await assertFails(setDoc(doc(db('bob'), path), ubicacion));
+  });
+
+  it('a different household cannot read or write', async () => {
+    await assertFails(getDoc(doc(db('carol'), path)));
+    await assertFails(setDoc(doc(db('carol'), path), ubicacion));
+  });
+});
+
 describe('menu_ingredients', () => {
   it('members have full CRUD with valid data', async () => {
     const bob = db('bob');
