@@ -76,10 +76,12 @@ This block stops users from giving themselves privileges:
 - **Joining is not tied to the invite code in the rules.** A user without a
   household can set `householdId` to any *existing* household as `member`; the
   invite-code check lives in application logic. Household IDs are random, which
-  limits this, but it is a rules-level gap.
+  limits this, but it is a rules-level gap. Tracked in
+  [#18](https://github.com/angutierrezdev/our-house/issues/18).
 - **Users without a household can read each other's profiles.** The read rule
   calls `isMember(resource.data.householdId)`; when both profiles have
-  `householdId: null` the comparison `null == null` is true.
+  `householdId: null` the comparison `null == null` is true. Tracked in
+  [#19](https://github.com/angutierrezdev/our-house/issues/19).
 - **gastos collections have no shape validation** — any `hasGastosAccess` user
   can write any fields.
 
