@@ -14,8 +14,6 @@ import {
   collection,
   getDocs,
   writeBatch,
-  query,
-  where,
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -237,6 +235,10 @@ export const createHousehold = async (
   batch.set(doc(db, "users", uid), { uid, householdId, role: "admin" }, { merge: true });
   await batch.commit();
 
+  // Separate write: the invite rule checks membership, which only holds
+  // once the batch above has committed.
+  await publishInvite(householdId);
+
   // Run migration (existing flat Firestore data → scoped subcollections)
   await migrateExistingDataToHousehold(uid, householdId);
 
@@ -249,28 +251,47 @@ export const joinHousehold = async (
 ): Promise<HouseholdInfo> => {
   if (!db) throw new Error("Firebase is not configured.");
 
-  // Find household by invite code
-  const q = query(
-    collection(db, "households"),
-    where("inviteCode", "==", inviteCode.toUpperCase())
-  );
-  const householdsSnap = await getDocs(q);
-  const match = householdsSnap.docs[0];
+  // Resolve the code through invites/{CODE}: households are not readable
+  // before joining, so querying them by inviteCode is denied by rules.
+  const normalized = inviteCode.trim().toUpperCase();
+  const inviteSnap = await getDoc(doc(db, "invites", normalized));
+  const householdId = inviteSnap.data()?.householdId;
 
-  if (!match) throw new Error("Invalid invite code. Please check and try again.");
+  if (typeof householdId !== "string") {
+    throw new Error("Invalid invite code. Please check and try again.");
+  }
 
-  const household = { id: match.id, ...match.data() } as HouseholdInfo;
-
-  // Link user → household (merge so it works even if the doc was never created)
+  // Link user → household (merge so it works even if the doc was never created).
+  // The code travels as joinCode so the rules can check it against the household.
   await setDoc(doc(db, "users", uid), {
     uid,
-    householdId: household.id,
+    householdId,
     role: "member",
+    joinCode: normalized,
   }, { merge: true });
 
+  const household = await getHouseholdInfo(householdId);
+  if (!household) throw new Error("Household not found.");
+
   // Run migration for existing user data now that they have joined a household
-  await migrateExistingDataToHousehold(uid, household.id);
+  await migrateExistingDataToHousehold(uid, householdId);
   return household;
+};
+
+/**
+ * Publishes the invites/{CODE} → { householdId } lookup that joining users
+ * resolve. Best-effort, like the backfill in our-menu and smart-grocery: a
+ * failure only postpones it to the next sign-in.
+ */
+export const publishInvite = async (householdId: string): Promise<void> => {
+  if (!db) return;
+  try {
+    const household = await getHouseholdInfo(householdId);
+    if (!household?.inviteCode) return;
+    await setDoc(doc(db, "invites", household.inviteCode), { householdId });
+  } catch (error) {
+    console.warn("⚠️ Invite publish failed:", error);
+  }
 };
 
 export const getHouseholdInfo = async (

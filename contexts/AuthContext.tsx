@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { User } from "firebase/auth";
 import {
+  publishInvite,
   subscribeToAuthState,
   subscribeToUserProfile,
   UserProfile,
@@ -42,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Ensure we only sync local data to Firebase once per session
   const didSync = useRef(false);
+  // Households whose invite lookup was already published this session
+  const publishedInvites = useRef(new Set<string>());
 
   useEffect(() => {
     let profileUnsub: (() => void) | null = null;
@@ -76,6 +79,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               .catch((err) => console.warn("⚠️ Sync failed:", err));
           }
 
+          // Backfill invites/{CODE} so households created before it existed
+          // can be joined from any app.
+          if (hid && !publishedInvites.current.has(hid)) {
+            publishedInvites.current.add(hid);
+            void publishInvite(hid);
+          }
+
           setAuthLoading(false);
         });
       } else {
@@ -84,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setHouseholdIdState(null);
         setHouseholdId(null);
         didSync.current = false;
+        publishedInvites.current.clear();
         setAuthLoading(false);
       }
     });

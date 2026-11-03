@@ -45,16 +45,23 @@ service cloud.firestore {
                       || (
                         resource.data.householdId == null
                         && request.resource.data.householdId != null
-                        && exists(/databases/$(database)/documents/households/$(request.resource.data.householdId))
+                        // *After variants: createHousehold writes the household
+                        // and this profile in one batch, and plain exists()/get()
+                        // see the state before the batch.
+                        && existsAfter(/databases/$(database)/documents/households/$(request.resource.data.householdId))
                         && (
                           // Becoming admin: only if this user created the household.
                           (
                             request.resource.data.role == 'admin'
-                            && get(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.createdBy == uid
+                            && getAfter(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.createdBy == uid
                           )
-                          // Becoming member: household must exist (invite-code
-                          // validity is enforced in application logic).
-                          || request.resource.data.role == 'member'
+                          // Becoming member: the write must carry the
+                          // household's invite code as joinCode, so knowing
+                          // a household ID alone is not enough to join.
+                          || (
+                            request.resource.data.role == 'member'
+                            && request.resource.data.joinCode == get(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.inviteCode
+                          )
                         )
                       )
                     );
