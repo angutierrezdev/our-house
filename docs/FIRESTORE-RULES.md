@@ -66,18 +66,23 @@ This block stops users from giving themselves privileges:
   `householdId: null`. No client can sign up as an admin.
 - **Update (self):** either a normal edit that changes neither `role` nor
   `householdId`, **or** a one-time household assignment from `householdId: null`:
-  - becoming `admin` only for a household whose `createdBy` is you;
-  - becoming `member` of any existing household.
+  - becoming `admin` only for a household whose `createdBy` is you. It uses
+    `existsAfter`/`getAfter` because `createHousehold` writes the household and
+    the profile in one batch, and plain `exists`/`get` see the state before it;
+  - becoming `member` only if the write carries the household's invite code as
+    `joinCode` (`joinCode == households/{hid}.inviteCode`). Every app's
+    `joinHousehold` sends the code it resolved through `invites/{CODE}`.
 - **Update (admin):** an admin may change **only** `canAccessGastos` on a
   member of their household (control-gastos → Ajustes → Miembros).
 
 ### Known caveats
 
-- **Joining is not tied to the invite code in the rules.** A user without a
-  household can set `householdId` to any *existing* household as `member`; the
-  invite-code check lives in application logic. Household IDs are random, which
-  limits this, but it is a rules-level gap. Tracked in
-  [#18](https://github.com/angutierrezdev/our-house/issues/18).
+- **Accepted risk: invite codes can be guessed.** Joining needs a household's
+  6-character code (A–Z, 0–9; about 2.2 billion combinations), and any signed-in
+  user can test codes by reading `invites/{CODE}`. Codes are never regenerated.
+  The Spark plan's 50,000 daily reads, shared by four apps, cap the guessing
+  rate. **Revisit if the project moves to Blaze**, which removes that cap.
+  Decided in [#18](https://github.com/angutierrezdev/our-house/issues/18).
 - **Users without a household can read each other's profiles.** The read rule
   calls `isMember(resource.data.householdId)`; when both profiles have
   `householdId: null` the comparison `null == null` is true. Tracked in

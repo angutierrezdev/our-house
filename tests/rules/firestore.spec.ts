@@ -16,6 +16,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 
@@ -138,9 +139,59 @@ describe('users (regression)', () => {
     );
   });
 
-  it('allows joining an existing household from a null state as member', async () => {
+  it('allows joining from a null state as member with the household invite code', async () => {
     await assertSucceeds(
+      updateDoc(doc(db('dave'), 'users/dave'), {
+        householdId: 'h1',
+        role: 'member',
+        joinCode: 'ABC123',
+      }),
+    );
+  });
+
+  it('lets a household creator become its admin without an invite code', async () => {
+    // Mirrors createHousehold: household + admin profile in one batch.
+    const dave = db('dave');
+    const batch = writeBatch(dave);
+    batch.set(doc(dave, 'households/h3'), {
+      name: 'Casa 3',
+      inviteCode: 'NEW333',
+      createdBy: 'dave',
+    });
+    batch.set(doc(dave, 'users/dave'), { uid: 'dave', householdId: 'h3', role: 'admin' }, {
+      merge: true,
+    });
+    await assertSucceeds(batch.commit());
+  });
+
+  it('denies claiming admin of an existing household by rewriting createdBy in a batch', async () => {
+    const dave = db('dave');
+    const batch = writeBatch(dave);
+    batch.set(doc(dave, 'households/h1'), { createdBy: 'dave' }, { merge: true });
+    batch.set(doc(dave, 'users/dave'), { householdId: 'h1', role: 'admin' }, { merge: true });
+    await assertFails(batch.commit());
+  });
+
+  it('denies joining as member without the invite code', async () => {
+    await assertFails(
       updateDoc(doc(db('dave'), 'users/dave'), { householdId: 'h1', role: 'member' }),
+    );
+  });
+
+  it("denies joining with another household's code or a made-up one", async () => {
+    await assertFails(
+      updateDoc(doc(db('dave'), 'users/dave'), {
+        householdId: 'h1',
+        role: 'member',
+        joinCode: 'XYZ789',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db('dave'), 'users/dave'), {
+        householdId: 'h1',
+        role: 'member',
+        joinCode: 'NOPE99',
+      }),
     );
   });
 
@@ -207,7 +258,7 @@ describe('invites', () => {
     const invite = await getDoc(doc(dave, 'invites/ABC123'));
     const householdId = invite.data()?.householdId as string;
     await assertSucceeds(
-      updateDoc(doc(dave, 'users/dave'), { householdId, role: 'member' }),
+      updateDoc(doc(dave, 'users/dave'), { householdId, role: 'member', joinCode: 'ABC123' }),
     );
     await assertSucceeds(getDoc(doc(db('dave'), `households/${householdId}`)));
   });
