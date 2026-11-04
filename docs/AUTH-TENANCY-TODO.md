@@ -661,6 +661,8 @@ If there is already live data in the flat `/people` and `/chores` collections:
 - [ ] Run the script before deploying the new app version
 - [ ] Alternatively, handle this in `syncLocalDataToFirebase` during the first login
 
+> **Status (2026-11-03, #21):** the in-app migration (`migrateExistingDataToHousehold`) was removed — the rules deny client reads of the flat collections, so it could only fail. An admin dry run confirmed every flat `/people` (4) and `/chores` (6) doc already exists in the Hidalgo household with no newer flat copy. The flat docs have not been deleted.
+
 ---
 
 ## 13. Testing Checklist
