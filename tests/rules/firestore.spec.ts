@@ -25,7 +25,7 @@ let testEnv: RulesTestEnvironment;
 const db = (uid: string) => testEnv.authenticatedContext(uid).firestore();
 const anonDb = () => testEnv.unauthenticatedContext().firestore();
 
-// alice: admin of h1 · bob: member of h1 · carol: member of h2 · dave: no household
+// alice: admin of h1 · bob: member of h1 · carol: member of h2 · dave, erin: no household
 async function seed() {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const admin = ctx.firestore();
@@ -50,6 +50,12 @@ async function seed() {
     await setDoc(doc(admin, 'users/dave'), {
       uid: 'dave',
       email: 'dave@test.dev',
+      householdId: null,
+      role: 'member',
+    });
+    await setDoc(doc(admin, 'users/erin'), {
+      uid: 'erin',
+      email: 'erin@test.dev',
       householdId: null,
       role: 'member',
     });
@@ -118,6 +124,19 @@ describe('users (regression)', () => {
   it('lets household members read each other, denies outsiders', async () => {
     await assertSucceeds(getDoc(doc(db('alice'), 'users/bob')));
     await assertFails(getDoc(doc(db('carol'), 'users/bob')));
+  });
+
+  it('denies users without a household reading each other', async () => {
+    await assertFails(getDoc(doc(db('dave'), 'users/erin')));
+  });
+
+  it('allows the household member queries control-gastos runs', async () => {
+    const users = collection(db('bob'), 'users');
+    await assertSucceeds(getDocs(query(users, where('householdId', '==', 'h1'))));
+    await assertSucceeds(
+      getDocs(query(users, where('householdId', '==', 'h1'), where('role', '==', 'admin'))),
+    );
+    await assertFails(getDocs(query(users, where('householdId', '==', 'h2'))));
   });
 
   it('only allows bootstrap profiles with role=member and householdId=null', async () => {

@@ -12,9 +12,12 @@ service cloud.firestore {
       // Users can read their own profile, or any profile belonging to the
       // same household (needed by control-gastos's NoAccessPage to show the
       // admin's name/email; only exposes uid/email/role/householdId, no
-      // sensitive data).
+      // sensitive data). The null check stops two no-household users from
+      // matching each other through isMember(null).
       allow read: if request.auth != null
-                  && (request.auth.uid == uid || isMember(resource.data.householdId));
+                  && (request.auth.uid == uid
+                      || (resource.data.householdId != null
+                          && isMember(resource.data.householdId)));
 
       // Initial profile creation (sign-up / Google sign-in):
       // only allowed with role='member' and householdId=null so that
