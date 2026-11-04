@@ -11,8 +11,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  collection,
-  getDocs,
   writeBatch,
   onSnapshot,
 } from "firebase/firestore";
@@ -26,7 +24,6 @@ export interface UserProfile {
   email: string;
   householdId: string | null;
   role: "admin" | "member";
-  migratedAt?: number;
 }
 
 export interface HouseholdInfo {
@@ -156,58 +153,6 @@ export const subscribeToUserProfile = (
   });
 };
 
-// ─── Migration ───────────────────────────────────────────────────────────────
-// One-time migration: copies flat /people and /chores docs into the
-// new household-scoped subcollections. Safe to call multiple times — it
-// is guarded by the `migratedAt` timestamp written to the user profile.
-
-const migrateExistingDataToHousehold = async (
-  uid: string,
-  householdId: string
-): Promise<void> => {
-  if (!db) return;
-
-  // Guard: skip if already migrated
-  const userSnap = await getDoc(doc(db, "users", uid));
-  if (userSnap.data()?.migratedAt) return;
-
-  const [peopleSnap, choresSnap] = await Promise.all([
-    getDocs(collection(db, "people")),
-    getDocs(collection(db, "chores")),
-  ]);
-
-  if (peopleSnap.empty && choresSnap.empty) {
-    // Nothing to migrate — just mark done
-    await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
-    return;
-  }
-
-  // Batch in chunks of 500 (Firestore limit)
-  const BATCH_SIZE = 400;
-  const ops: Array<{ path: string; id: string; data: Record<string, unknown> }> = [];
-
-  peopleSnap.forEach((d) =>
-    ops.push({ path: `households/${householdId}/people`, id: d.id, data: d.data() })
-  );
-  choresSnap.forEach((d) =>
-    ops.push({ path: `households/${householdId}/chores`, id: d.id, data: d.data() })
-  );
-
-  for (let i = 0; i < ops.length; i += BATCH_SIZE) {
-    const batch = writeBatch(db);
-    ops.slice(i, i + BATCH_SIZE).forEach((op) => {
-      batch.set(doc(collection(db!, op.path), op.id), op.data, { merge: true });
-    });
-    await batch.commit();
-  }
-
-  // Mark migration complete
-  await setDoc(doc(db, "users", uid), { migratedAt: Date.now() }, { merge: true });
-  console.log(
-    `✅ Migrated ${peopleSnap.size} people + ${choresSnap.size} chores → households/${householdId}`
-  );
-};
-
 // ─── Household ────────────────────────────────────────────────────────────────
 
 export const createHousehold = async (
@@ -239,9 +184,6 @@ export const createHousehold = async (
   // once the batch above has committed.
   await publishInvite(householdId);
 
-  // Run migration (existing flat Firestore data → scoped subcollections)
-  await migrateExistingDataToHousehold(uid, householdId);
-
   return household;
 };
 
@@ -272,9 +214,6 @@ export const joinHousehold = async (
 
   const household = await getHouseholdInfo(householdId);
   if (!household) throw new Error("Household not found.");
-
-  // Run migration for existing user data now that they have joined a household
-  await migrateExistingDataToHousehold(uid, householdId);
   return household;
 };
 
