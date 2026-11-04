@@ -49,7 +49,7 @@ That is what lets schemas evolve additively (for example smart-grocery's
 
 | Path | Read | Write | Notes |
 | --- | --- | --- | --- |
-| `users/{uid}` | Self, or anyone in the same household | See below | Exposes only uid/email/role/householdId. |
+| `users/{uid}` | Self, or anyone in the same household (users without a household see only themselves) | See below | Exposes only uid/email/role/householdId. |
 | `households/{hid}` | Members | Create: anyone signed in, as `createdBy` themselves. Update/delete: admin | |
 | `invites/{CODE}` | `get` by any signed-in user; **no `list`** | Create/update: members, only under the household's real `inviteCode`, only `{ householdId }`. Delete: admin | Codes can't be enumerated; knowing one is what grants the lookup. |
 | `households/{hid}/people`, `/chores` | Members | Members; `isValidPerson` / `isValidChore`; `id` can't change | our-house |
@@ -83,10 +83,6 @@ This block stops users from giving themselves privileges:
   The Spark plan's 50,000 daily reads, shared by four apps, cap the guessing
   rate. **Revisit if the project moves to Blaze**, which removes that cap.
   Decided in [#18](https://github.com/angutierrezdev/our-house/issues/18).
-- **Users without a household can read each other's profiles.** The read rule
-  calls `isMember(resource.data.householdId)`; when both profiles have
-  `householdId: null` the comparison `null == null` is true. Tracked in
-  [#19](https://github.com/angutierrezdev/our-house/issues/19).
 - **gastos collections have no shape validation** — any `hasGastosAccess` user
   can write any fields.
 
