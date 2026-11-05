@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (firebaseUser) {
         // Subscribe to the user profile document in real-time so AuthContext
         // automatically detects household creation/joining without re-login.
-        profileUnsub = subscribeToUserProfile(firebaseUser.uid, (p) => {
+        profileUnsub = subscribeToUserProfile(firebaseUser.uid, (p, confirmed) => {
           setProfile(p);
 
           const hid = p?.householdId ?? null;
@@ -72,16 +72,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
           // One-time sync: push localStorage data into Firebase when
           // a household is available for the first time in this session.
-          if (hid && !didSync.current && db) {
+          // Waits for a server-confirmed profile: until the create/join write
+          // commits, the rules don't treat the user as a member yet.
+          if (hid && confirmed && !didSync.current && db) {
             didSync.current = true;
             syncLocalDataToFirebase(db)
               .then(() => console.log("✅ localStorage synced to household Firestore"))
-              .catch((err) => console.warn("⚠️ Sync failed:", err));
+              .catch((err) => {
+                didSync.current = false; // retry on the next snapshot
+                console.warn("⚠️ Sync failed:", err);
+              });
           }
 
           // Backfill invites/{CODE} so households created before it existed
           // can be joined from any app.
-          if (hid && !publishedInvites.current.has(hid)) {
+          if (hid && confirmed && !publishedInvites.current.has(hid)) {
             publishedInvites.current.add(hid);
             void publishInvite(hid);
           }

@@ -12,9 +12,9 @@ Shared household context (Firebase project, Firestore layout, cross-repo contrac
 npm run dev      # Start dev server on port 3000
 npm run build    # Production build → dist/
 npm run preview  # Serve production build locally
+npm test         # App unit tests (vitest; jsdom via per-file `// @vitest-environment jsdom`)
+npm run test:rules  # Firestore rules suite (emulator, needs Java)
 ```
-
-No test framework is configured.
 
 ## Architecture Overview
 
