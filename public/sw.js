@@ -111,7 +111,26 @@ self.addEventListener('fetch', event => {
         }
       }
 
-      // Stale-while-revalidate for HTML and app resources
+      // Network-first for the page itself. index.html names the hashed
+      // bundles, so serving it from cache pins the device to an old build:
+      // the browser only replaces this worker when sw.js changes, which a
+      // deploy usually doesn't. Cache is the offline fallback.
+      if (request.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            const cache = await caches.open(RUNTIME_CACHE);
+            await cache.put(request, response.clone());
+          }
+          return response;
+        } catch (error) {
+          const cached = await caches.match(request, { ignoreSearch: true })
+            || await caches.match(`${BASE_PATH}/index.html`);
+          return cached || caches.match(`${BASE_PATH}/offline.html`);
+        }
+      }
+
+      // Stale-while-revalidate for other app resources (hashed, immutable)
       const cached = await caches.match(request);
       const fetchPromise = fetch(request).then(async response => {
         if (response.ok) {
