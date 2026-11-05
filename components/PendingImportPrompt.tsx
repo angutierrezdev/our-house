@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Inbox } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { getHouseholdInfo } from '../services/authService';
+import { useAuth, useHouseholdInfo } from '../contexts/AuthContext';
 import { getPendingImport, PendingImport } from '../services/localStorage';
 import { importPendingData, discardPendingData } from '../services/dataService';
 
@@ -14,19 +13,10 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 const PendingImportPrompt: React.FC = () => {
   const { householdId } = useAuth();
   const [pending, setPending] = useState<PendingImport | null>(null);
-  const [householdName, setHouseholdName] = useState<string | null>(null);
+  const householdName = useHouseholdInfo()?.name;
 
   useEffect(() => {
     setPending(householdId ? getPendingImport() : null);
-    setHouseholdName(null);
-    if (!householdId) return;
-    let cancelled = false;
-    getHouseholdInfo(householdId)
-      .then((info) => !cancelled && setHouseholdName(info?.name ?? null))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
   }, [householdId]);
 
   if (!householdId || !pending) return null;

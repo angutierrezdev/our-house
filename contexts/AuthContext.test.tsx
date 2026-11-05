@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, act, cleanup } from '@testing-library/react';
+import { render, act, cleanup, screen } from '@testing-library/react';
 import React from 'react';
 
 // Drive AuthContext with hand-fed auth and profile snapshots. The profile
@@ -26,20 +26,23 @@ vi.mock('../services/authService', () => ({
     return () => {};
   },
   publishInvite: vi.fn(async () => {}),
+  getHouseholdInfo: vi.fn(async (hid: string) => ({ id: hid, name: 'Hidalgo', inviteCode: 'ABC123' })),
 }));
 vi.mock('../services/dataService', () => ({
   setHouseholdId: vi.fn(),
   syncLocalDataToFirebase: vi.fn(async () => {}),
 }));
 
-import { AuthProvider } from './AuthContext';
-import { publishInvite } from '../services/authService';
+import { AuthProvider, useHouseholdInfo } from './AuthContext';
+import { publishInvite, getHouseholdInfo } from '../services/authService';
 import { syncLocalDataToFirebase } from '../services/dataService';
 
 const profile = { uid: 'u1', email: 'u1@test.dev', householdId: 'h1', role: 'member' };
 
+const HouseholdName = () => <p>{useHouseholdInfo()?.name ?? 'none'}</p>;
+
 const signIn = async () => {
-  render(<AuthProvider><div /></AuthProvider>);
+  render(<AuthProvider><HouseholdName /></AuthProvider>);
   await act(async () => h.authCb!({ uid: 'u1' }));
 };
 const snapshot = async (confirmed: boolean) => {
@@ -77,5 +80,32 @@ describe('household side effects wait for the server', () => {
     await snapshot(true);
     await snapshot(true);
     expect(syncLocalDataToFirebase).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useHouseholdInfo', () => {
+  beforeEach(() => vi.mocked(getHouseholdInfo).mockClear());
+  afterEach(() => cleanup());
+
+  it('waits for the server before reading the household', async () => {
+    await signIn();
+    await snapshot(false);
+    expect(getHouseholdInfo).not.toHaveBeenCalled();
+    expect(screen.getByText('none')).toBeTruthy();
+
+    await snapshot(true);
+    expect(await screen.findByText('Hidalgo')).toBeTruthy();
+    expect(getHouseholdInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on the next confirmed snapshot after a failed read', async () => {
+    vi.mocked(getHouseholdInfo).mockRejectedValueOnce(new Error('denied'));
+    await signIn();
+    await snapshot(true);
+    expect(screen.getByText('none')).toBeTruthy();
+
+    await snapshot(false);
+    await snapshot(true);
+    expect(await screen.findByText('Hidalgo')).toBeTruthy();
   });
 });
