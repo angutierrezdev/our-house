@@ -26,6 +26,8 @@ All data access goes through `services/dataService.ts`, which implements a hybri
 - **With `householdId`:** Read/write Firestore subcollections at `households/{householdId}/chores` and `.../people`, with localStorage as a cache.
 - **Without `householdId`:** localStorage only.
 
+The localStorage cache records which household wrote it (`choremaster_owner`); `setHouseholdId()` reconciles it first (`services/cacheOwnership.ts`), so one household's cache is never uploaded into another. This matters because our-house shares its origin, and so its storage and Firebase session, with smart-grocery. Signed-out data moves into a household created on this device, and asks first (`PendingImportPrompt`) when a household is joined.
+
 Offline changes are queued locally and synced via `syncLocalDataToFirebase()` on reconnect. Conflict resolution is last-write-wins based on `updatedAt` timestamps. Deletions are tracked as tombstones in localStorage (`choremaster_deleted_chores`, `choremaster_deleted_people`) and replayed to Firestore on sync.
 
 ### Auth & Household Setup

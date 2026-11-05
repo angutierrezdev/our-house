@@ -14,6 +14,7 @@ import {
   getLocalChores, saveLocalChores, getLocalPeople, saveLocalPeople,
   getDeletedChoreIds, recordDeletedChore, clearDeletedChore,
   getDeletedPeopleIds, recordDeletedPerson, clearDeletedPerson,
+  reconcileCache, cacheBelongsTo, acceptPendingImport, discardPendingImport,
 } from "./localStorage";
 import { Chore, Person, ChoreFrequency, ChoreStatus, ChorePriority, ChoreDifficulty } from "../types";
 import { addWeeks, addMonths, addDays, addYears } from "date-fns";
@@ -26,9 +27,32 @@ type Unsubscribe = () => void;
 // Set by AuthContext once a user is authenticated and has a household.
 // When null, all reads/writes fall back to localStorage only.
 let _householdId: string | null = null;
+// Household the local cache was last reconciled for (undefined: not yet).
+let _reconciledFor: string | null | undefined = undefined;
 
 export const setHouseholdId = (id: string | null): void => {
   _householdId = id;
+  // Settle whose cache this is before anything reads or syncs it (#24).
+  if (id !== _reconciledFor) {
+    _reconciledFor = id;
+    const action = reconcileCache(id);
+    if (action !== "merge" && action !== "keep") {
+      notifyChoreListeners();
+      notifyPeopleListeners();
+    }
+  }
+};
+
+/** Add the signed-out data set aside on join to the household, then upload it. */
+export const importPendingData = async (): Promise<void> => {
+  acceptPendingImport();
+  notifyChoreListeners();
+  notifyPeopleListeners();
+  if (db) await syncLocalDataToFirebase(db);
+};
+
+export const discardPendingData = (): void => {
+  discardPendingImport();
 };
 
 export const getHouseholdId = (): string | null => _householdId;
@@ -125,6 +149,8 @@ const sortChores = (chores: Chore[]): Chore[] => {
  */
 export const syncLocalDataToFirebase = async (targetDb: any) => {
   if (!targetDb || !_householdId) return;
+  // Never upload a cache that belongs to another household (#24).
+  if (!cacheBelongsTo(_householdId)) return;
 
   const [remoteChoreSnap, remotePeopleSnap, localChores, localPeople] = await Promise.all([
     getDocs(query(collection(targetDb, colPath('chores')))),
