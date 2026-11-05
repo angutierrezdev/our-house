@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import { User } from "firebase/auth";
 import {
+  getHouseholdInfo,
+  HouseholdInfo,
   publishInvite,
   subscribeToAuthState,
   subscribeToUserProfile,
@@ -21,6 +23,8 @@ interface AuthState {
   user: User | null;
   profile: UserProfile | null;
   householdId: string | null;
+  /** The server has confirmed `profile`, so household reads are allowed. */
+  profileConfirmed: boolean;
   authLoading: boolean;
 }
 
@@ -28,6 +32,7 @@ const AuthContext = createContext<AuthState>({
   user: null,
   profile: null,
   householdId: null,
+  profileConfirmed: false,
   authLoading: true,
 });
 
@@ -39,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [householdId, setHouseholdIdState] = useState<string | null>(null);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
   const [authLoading, setAuthLoading] = useState(isFirebaseConfigured);
 
   // Ensure we only sync local data to Firebase once per session
@@ -63,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // automatically detects household creation/joining without re-login.
         profileUnsub = subscribeToUserProfile(firebaseUser.uid, (p, confirmed) => {
           setProfile(p);
+          setProfileConfirmed(confirmed);
 
           const hid = p?.householdId ?? null;
           setHouseholdIdState(hid);
@@ -96,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         // Signed out — clear everything and unscope dataService
         setProfile(null);
+        setProfileConfirmed(false);
         setHouseholdIdState(null);
         setHouseholdId(null);
         didSync.current = false;
@@ -111,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, householdId, authLoading }}>
+    <AuthContext.Provider value={{ user, profile, householdId, profileConfirmed, authLoading }}>
       {children}
     </AuthContext.Provider>
   );
@@ -120,3 +128,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useAuth = (): AuthState => useContext(AuthContext);
+
+/**
+ * The signed-in household's info, or null until it can be read. Reads only
+ * once the server confirms the profile: right after a create/join the rules
+ * still deny it, and a failed read is retried on the next confirmation.
+ */
+export const useHouseholdInfo = (): HouseholdInfo | null => {
+  const { householdId, profileConfirmed } = useAuth();
+  const [info, setInfo] = useState<HouseholdInfo | null>(null);
+
+  useEffect(() => {
+    if (!householdId) {
+      setInfo(null);
+      return;
+    }
+    if (!profileConfirmed) return;
+    let cancelled = false;
+    getHouseholdInfo(householdId)
+      .then((i) => !cancelled && setInfo(i))
+      .catch((err) => console.warn("⚠️ Household read failed:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [householdId, profileConfirmed]);
+
+  return info?.id === householdId ? info : null;
+};

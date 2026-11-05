@@ -9,9 +9,7 @@ const { h } = vi.hoisted(() => ({
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({ householdId: h.householdId }),
-}));
-vi.mock('../services/authService', () => ({
-  getHouseholdInfo: async () => ({ name: 'Hidalgo' }),
+  useHouseholdInfo: () => (h.householdId ? { name: 'Hidalgo' } : null),
 }));
 vi.mock('../services/localStorage', () => ({
   getPendingImport: () => h.pending,

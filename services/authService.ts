@@ -157,7 +157,9 @@ export const subscribeToUserProfile = (
   return onSnapshot(doc(db, "users", uid), { includeMetadataChanges: true }, (snap) => {
     callback(
       snap.exists() ? (snap.data() as UserProfile) : null,
-      !snap.metadata.hasPendingWrites
+      // A pending create/join write or a cache read can name a household
+      // the rules don't see the user in yet; only the server confirms it.
+      !snap.metadata.hasPendingWrites && !snap.metadata.fromCache
     );
   });
 };

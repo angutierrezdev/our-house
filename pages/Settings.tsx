@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Sparkles, Save, ShieldCheck, Cloud, Home, Copy, CheckCheck, LogOut } from "lucide-react";
 import { getSettings, saveSettings, AppSettings } from "../services/settingsService";
-import { useAuth } from "../contexts/AuthContext";
-import { logOut, getHouseholdInfo, HouseholdInfo } from "../services/authService";
+import { useAuth, useHouseholdInfo } from "../contexts/AuthContext";
+import { logOut } from "../services/authService";
 import AuthPanel from "../components/AuthPanel";
 import HouseholdSetupSheet from "../components/HouseholdSetupSheet";
 
@@ -11,16 +11,8 @@ const Settings: React.FC = () => {
   const [savedStatus, setSavedStatus] = useState(false);
 
   const { user, profile, householdId } = useAuth();
-  const [household, setHousehold] = useState<HouseholdInfo | null>(null);
+  const household = useHouseholdInfo();
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (householdId) {
-      getHouseholdInfo(householdId).then(setHousehold).catch(() => setHousehold(null));
-    } else {
-      setHousehold(null);
-    }
-  }, [householdId]);
 
   const handleCopyInvite = async () => {
     if (household?.inviteCode) {
@@ -172,7 +164,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="bg-gray-100 p-4 rounded-xl text-center">
-        <p className="text-xs text-gray-400">Our House v2.3.0 • Cloud Sync Enabled</p>
+        <p className="text-xs text-gray-400">Our House v2.3.1 • Cloud Sync Enabled</p>
       </div>
     </div>
   );
