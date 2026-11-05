@@ -172,7 +172,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="bg-gray-100 p-4 rounded-xl text-center">
-        <p className="text-xs text-gray-400">Our House v2.2.0 • Cloud Sync Enabled</p>
+        <p className="text-xs text-gray-400">Our House v2.3.0 • Cloud Sync Enabled</p>
       </div>
     </div>
   );
