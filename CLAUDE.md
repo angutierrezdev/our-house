@@ -76,7 +76,8 @@ The system automatically detects the change, shows an update notification to act
 
 **Service Worker (`/public/sw.js`)**
 - Fetches version from `metadata.json` on startup
-- Cache-first fetch strategy; cleans old caches on activate
+- Network-first for the page (`index.html`/navigations), falling back to cache offline; cache-first for images/fonts/styles; stale-while-revalidate for hashed bundles. Cleans old caches on activate
+- Browsers only install a new worker when `sw.js` bytes change, and the version is read at runtime. So never serve `index.html` cache-first: it would pin installed devices to an old build forever
 - Does NOT auto-call `skipWaiting()` — waits for client signal
 - Responds to `GET_VERSION` and `SKIP_WAITING` messages via `MessageChannel`
 
