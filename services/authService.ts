@@ -15,7 +15,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { clearAllLocalData } from "./localStorage";
+import { clearAllLocalData, markHouseholdCreatedHere } from "./localStorage";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -184,6 +184,10 @@ export const createHousehold = async (
 
   // Write household doc and link user → household atomically so that the
   // user is never left in an inconsistent admin state if either write fails.
+  // Signed-out data on this device moves into a household created here
+  // without asking (a joined one asks first, see services/cacheOwnership.ts).
+  markHouseholdCreatedHere(householdId);
+
   const batch = writeBatch(db);
   batch.set(doc(db, "households", householdId), household);
   batch.set(doc(db, "users", uid), { uid, householdId, role: "admin" }, { merge: true });

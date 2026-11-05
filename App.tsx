@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import PWAUpdate from './components/PWAUpdate';
+import PendingImportPrompt from './components/PendingImportPrompt';
 import SplashScreen from './components/SplashScreen';
 import Dashboard from './pages/Dashboard';
 import KanbanBoard from './pages/KanbanBoard';
@@ -17,6 +18,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <SplashScreen onComplete={() => setShowSplash(false)} />
       <PWAUpdate />
+      <PendingImportPrompt />
       <HashRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
