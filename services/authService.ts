@@ -140,16 +140,25 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   return snap.exists() ? (snap.data() as UserProfile) : null;
 };
 
+/**
+ * `confirmed` is false while the snapshot reflects this client's own pending
+ * write (e.g. right after creating or joining a household): the server does
+ * not consider the user a member yet. Metadata changes are included so a
+ * confirmed snapshot follows once the write commits.
+ */
 export const subscribeToUserProfile = (
   uid: string,
-  callback: (profile: UserProfile | null) => void
+  callback: (profile: UserProfile | null, confirmed: boolean) => void
 ): (() => void) => {
   if (!db) {
-    callback(null);
+    callback(null, true);
     return () => {};
   }
-  return onSnapshot(doc(db, "users", uid), (snap) => {
-    callback(snap.exists() ? (snap.data() as UserProfile) : null);
+  return onSnapshot(doc(db, "users", uid), { includeMetadataChanges: true }, (snap) => {
+    callback(
+      snap.exists() ? (snap.data() as UserProfile) : null,
+      !snap.metadata.hasPendingWrites
+    );
   });
 };
 
